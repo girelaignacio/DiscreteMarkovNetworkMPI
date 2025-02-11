@@ -66,8 +66,12 @@ class discrete_graphical_model:
                 bic_v.append(self._lpl_bic(YX,[q+i for i in indx_v],list(range(q))+[q+j for j in indx_w],len(indx_w))[1])
         #ne_v_optim = ne_v[max(enumerate(bic_v), key=lambda x: x[1])[0]]
         #NE[i,ne_v_optim]=True
-        ne_v_optim_indx=np.argmax(np.hstack(bic_v),axis=1,keepdims=True)
-        ne_v_optim     = np.zeros((len(self.c),p),dtype=bool)
+        try:  # Try the keepdims version
+            ne_v_optim_indx = np.argmax(np.hstack(bic_v), axis=1, keepdims=True)
+        except TypeError:  # Handle the error, print version
+            print(f"keepdims failed. Worker process NumPy version: {np.__version__} (PID: {multiprocessing.current_process().pid})")
+            ne_v_optim_indx = np.argmax(np.hstack(bic_v), axis=1) # Fallback
+        ne_v_optim = np.zeros((len(self.c),p),dtype=bool)
         for ic in range(len(self.c)):
             ne_v_optim[ic,ne_v[int(ne_v_optim_indx[ic])]]=True 
         #NElst.append(ne_v_optim)
