@@ -13,13 +13,13 @@ from discrete_gm_nonpos import *
 # In[ ]:
 
 
-os.path.exists(os.getcwd() + "/data")
+os.path.exists(os.getcwd() + "/data_py")
 
 
 # In[ ]:
 
 
-mpi2023 = pd.read_csv(os.getcwd() + "/data/MPI2023_microdata.csv")
+mpi2023 = pd.read_csv(os.getcwd() + "/data_py/MPI2023_microdata.csv")
 
 
 # In[ ]:
@@ -123,7 +123,7 @@ Y = mpi2023['pobnopoi']
 
 Xtrain, Xtest, ytrain, ytest = model_selection.train_test_split(X,Y,train_size = 0.8, random_state=912)
 
-
+print("model to be run")
 # In[ ]:
 
 
@@ -145,7 +145,7 @@ Xtrain = (Xtrain).to_numpy().astype(int)>0
 
 cross_validation_in_prediction(sdr,Xtrain,ytrain,kfolds,AUC,bigger_is_better=True).learn()# update sdr object
 
-
+print("Best 'c' value:",sdr.c,"\nNeighbours",sdr.ne)
 # In[ ]:
 
 
