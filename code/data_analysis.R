@@ -1,30 +1,45 @@
-
 # Look-up tables ----------------------------------------------------------
 
+## Read data from OPHI global MPI. Then, combine data with the estimated graphs
+
+## global objects
+## Countries in results
+countries <- substr(list.files("./results"),1,3)
+## Indicators in proper order
+indicators <- c('d_nutr', 'd_cm', 
+                'd_educ', 'd_satt',
+                'd_ckfl', 'd_sani','d_wtr','d_elct', 'd_hsg', 'd_asst')
 
 sheet1 <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", skip = 7)
 sheet1 <- sheet1[,2:7]
 sheet1 <- na.omit(sheet1)
 colnames(sheet1) <- c("iso","country","region","survey","year","mpi")
-sheet1 <- sheet1[(tolower(sheet1$iso)) %in% substr(list.files("./results"),1,3),]
+sheet1 <- sheet1[(tolower(sheet1$iso)) %in% countries,]
+sheet1$iso <- tolower(sheet1$iso)
 
 sheet_censored <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", sheet = 2, skip = 7)
 sheet_censored <- sheet_censored[,c(2:6,8:17)]
 sheet_censored <- na.omit(sheet_censored)
 colnames(sheet_censored) <- c("iso","country","region","survey","year",
-                              'd_nutr', 'd_cm', 'd_educ', 'd_satt', 
-                              'd_ckfl', 'd_sani','d_wtr','d_elct', 'd_hsg', 'd_asst')
+                              indicators)
+sheet_censored <- sheet_censored[(tolower(sheet_censored$iso)) %in% countries,]
+sheet_censored$iso <- tolower(sheet_censored$iso)
+### Reorder columns
+sheet_censored <- sheet_censored[,c("iso","country","region","survey","year",
+                                    indicators)]
 
 sheet_raw <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", sheet = 6, skip = 7)
 sheet_raw <- sheet_raw[,c(2:6,8:17)]
 sheet_raw <- na.omit(sheet_censored)
 colnames(sheet_censored) <- c("iso","country","region","survey","year",
-                              'd_nutr', 'd_cm', 'd_educ', 'd_satt', 
-                              'd_ckfl', 'd_sani','d_wtr','d_elct', 'd_hsg', 'd_asst')
+                              indicators)
+sheet_raw <- sheet_raw[(tolower(sheet_raw$iso)) %in% countries,]
+sheet_raw$iso <- tolower(sheet_raw$iso)
+### Reorder columns
+sheet_raw <- sheet_raw[,c("iso","country","region","survey","year",
+                          indicators)]
 
-    ## Remember to change indicators order!
-
-# Read and save the adjacency matrix for each country ---------------------
+# Read the adjacency matrix for each country ------------------------------
 country_list <- lapply(list.files("./results"),
        function(x){
          country_iso <- substr(x, 1,3)
@@ -54,43 +69,78 @@ country_list <- lapply(list.files("./results"),
          return(adj_matrices)
        })
 
-names(country_list) <- substr(list.files("./results"),1,3)
+names(country_list) <- countries
+
+
+# Combine data ------------------------------------------------------------
+
+for (country in names(country_list)){
+  # check if survey and years match
+  ## years
+  year <- as.character(sheet1[sheet1$iso == country,"year"])
+  if (grepl("-", year)) {
+    parts <- strsplit(year, "-")[[1]]
+    year <- paste0(substring(parts[1], 3), "-", substring(parts[2], 3))
+  } else {
+    year <- substring(year, 3)
+  }
+  stopifnot(year == attr(country_list[[country]],"year"))
+  ## surveys
+  survey <- tolower(as.character(sheet1[sheet1$iso == country,"survey"]))
+  stopifnot(grepl(survey,attr(country_list[[country]],"survey")))
+  
+  # save world region
+  attr(country_list[[country]],"region") <- as.character(sheet1[sheet1$iso == country,"region"])
+  # save country full name
+  attr(country_list[[country]],"country") <- as.character(sheet1[sheet1$iso == country,"country"])
+  # save MPI results
+  attr(country_list[[country]],"mpi") <- as.numeric(sheet1[sheet1$iso == country,"mpi"])
+  # save censored indicators
+  censored_indicators <- as.numeric(sheet_censored[sheet_censored$iso == country,indicators])
+  names(censored_indicators) <- indicators
+  attr(country_list[[country]],"censored") <- censored_indicators
+  # save uncensored (raw) indicators
+  raw_indicators <- as.numeric(sheet_raw[sheet_raw$iso == country,indicators])
+  names(raw_indicators) <- indicators
+  attr(country_list[[country]],"raw") <- raw_indicators
+}
+
+
+# Save data ---------------------------------------------------------------
+
+saveRDS(country_list,"./app/data.rds")
 
 
 # Get the desired adjacency matrices
-filter_graphs <- function(data, region = NULL,
-                            c = 0,
-                            censored = TRUE,
-                            conservative = TRUE){
-  
-  if(!is.null(region)){
-    if(region %in% sheet1$region){
-      filtered.countries <- tolower(sheet1$iso[sheet1$region == region])
-      data <- data[filtered.countries]
-    }
+filter.DMN <- function(data, 
+                       country = NULL, region = "None",
+                       c = 0, censored = TRUE, conservative = TRUE){
+  # Filter by country
+  if(!is.null(country)){
+    data <- data[sapply(data, function(x) attr(x,"country") == country)]
   }
   
+  # Filter by region
+  if(region != "None"){
+    data <- data[sapply(data, function(x) attr(x,"region") == region)]
+  }
   
-    
-    adjacency_matrices <- sapply(data, function(x){
+  # Filter graphs adjacency matrices by penalization value (c), covariate 
+  # (raw or censored), and criterion (conservative or non-conservative)
+  adjacency_matrices <- sapply(data, function(x){
                               condition <- bquote(attr(y,'c') == .(c) &
                                                   attr(y,'censored') == .(censored) &
                                                   attr(y,"conservative") == .(conservative))
                               idx <- which(sapply(x, function(y) if(eval(condition)){TRUE}else{FALSE}) == TRUE)
                               return(x[idx])
-    })
-    
-    return(adjacency_matrices)
+                              }
+  )
+  return(adjacency_matrices)
 }
 
 
 
-X <- filter_graphs(country_list, conservative = FALSE)
-
-
-indicators <- c('d_cm', 'd_nutr', 
-                'd_satt', 'd_educ', 
-                'd_elct', 'd_wtr', 'd_sani','d_hsg', 'd_ckfl', 'd_asst')
+X <- filter.DMN(country_list, region = "Sub-Saharan Africa",conservative = FALSE)
 
 y <- as.matrix(Reduce("+", X)/length(X))
 
