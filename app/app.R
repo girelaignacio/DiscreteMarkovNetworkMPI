@@ -2,7 +2,8 @@
 library(shiny)
 library(igraph)
 library(ggplot2)
-library(reshape)
+library(reshape2)
+library(scales)
 
 # Utils functions ---------------------------------------------------------
 
@@ -32,13 +33,16 @@ filter.DMN <- function(data,
   return(adjacency_matrices)
 }
 
+# Load data
+data <- readRDS('data/data.rds')
+
 
 # Global input objects ----------------------------------------------------
 
 # global objects for filtering
 countries.names <- sapply(data, function(x) attr(x,"country"))
 covariate <- c("Uncensored", "Censored")
-summary.measures <- c("degree","cliques","neighbourhoods")
+summary.measures <- c("Proportions","Degrees","Cliques","neighbourhoods")
 # world region
 world.region.names <- c("None","Latin America and the Caribbean",
                         "Sub-Saharan Africa",
@@ -54,9 +58,9 @@ ui <- fluidPage(
     tabPanel("Aggregated Results",
              selectInput("summary", "Analysis and Measures", summary.measures),
              selectInput("region", "World Region", world.region.names),
-             sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 10),
+             sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 9),
              radioButtons("covariate", "Indicators", covariate),
-             plotOutput("heatmap")
+             plotOutput("plots")
     ),
     tabPanel("Graph Plots",
              selectInput("country", "Country", countries.names),
@@ -68,13 +72,9 @@ ui <- fluidPage(
 
 
 
+
 # server ------------------------------------------------------------------
 server <- function(input, output, session) {
-  # COMPLETE
-  # Load data
-  data <- reactive({
-    readRDS(normalizePath("./app/data.rds"))
-  })
   # Input conditions that filters data
   covariate <- reactive({
     if (input$covariate == "Censored"){
@@ -86,18 +86,57 @@ server <- function(input, output, session) {
   
   # Filtered data
   X <- reactive({
-    filter.DMN(data(), country = NULL, region = input$country, c = input$c,
-               censored = covariate, conservative = FALSE)
+    filter.DMN(data, country = NULL, region = input$region, c = input$c,
+               censored = covariate(), conservative = FALSE)
   })
   
   ## Heatmap
-  output$heatmap <- renderPlot({
-    temp <- Reduce("+", X())/length(X())
-    melted_data <- melt(temp)
-    ggplot(melted_data, aes(x = X1, y = X2, fill = value)) +
-      geom_tile(color = "black") +
-      geom_text(aes(label = round(value,2)), color = "white", size = 4) +
-      coord_fixed()
+  output$plots <- renderPlot({
+    if (input$summary == "Proportions") {
+      # X <- filter.DMN(data, country = NULL, region = input$region, c = input$c,
+      #          censored = TRUE, conservative = FALSE)
+      temp <- as.matrix(Reduce("+", X())/length(X()))
+      melted_data <- melt(temp)
+      melted_data$Var1 <- factor(melted_data$Var1)
+      melted_data$Var2 <- factor(melted_data$Var2, levels = rev(levels(factor(melted_data$Var2))))
+      ggplot(melted_data, aes(x = Var1, y = Var2, fill = value)) +
+        geom_tile(color = "black") +
+        geom_text(aes(label = round(value,2)), color = "white", size = 4) +
+        coord_fixed()
+    }
+    else if (input$summary == "Degrees") {
+    degrees <- sapply(X(), function(x){
+      g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
+      degree(g)
+      })
+    ggplot(melt(degrees), aes(x = Var2, y = value, fill = Var1)) + 
+      geom_bar(stat = "identity", position = "fill") +
+      scale_y_continuous(labels = percent)
+    }
+    else if (input$summary == "Cliques"){
+      all_cliques_lists <- sapply(X(), function(x){
+        g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
+        components(g, mode = "weak")
+        clq <- cliques(g, min = 2)
+        clq_lists <- lapply(clq, function(y) sort(V(g)$name[y]))
+        clique <- sapply(clq_lists, paste, collapse = ",")
+      })
+      all_cliques <- unlist(all_cliques_lists)
+      clique_counts_table <- as.data.frame(table(all_cliques))
+      
+      # Convert to a data frame for easier handling
+      clique_counts_df <- data.frame(clique = clique_counts_table$all_cliques,
+                                     count = clique_counts_table$Freq / length(X))
+      
+      # Sort by count in descending order
+      clique_counts_df <- clique_counts_df[order(clique_counts_df$count, decreasing = TRUE), ]
+      
+      ggplot(clique_counts_df[1:20,], aes(x = reorder(clique, count), y = count)) +
+        geom_bar(stat = "identity") +
+        coord_flip() +  # Keep the horizontal bars
+        theme(axis.text.y = element_text(size = 6, angle = 0, hjust = 1)) + # Adjust size and angle
+        labs(x = "Clique", y = "Count", title = "Clique Occurrences")
+    }
   })
 }
 

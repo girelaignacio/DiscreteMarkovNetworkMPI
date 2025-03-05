@@ -140,13 +140,14 @@ filter.DMN <- function(data,
 
 
 
-X <- filter.DMN(country_list, region = "Sub-Saharan Africa",conservative = FALSE)
+X <- filter.DMN(country_list, region = "None",conservative = FALSE)
 
 y <- as.matrix(Reduce("+", X)/length(X))
 
 library(ggplot2)
 melted_data <- reshape::melt(y)
-melted_data
+melted_data$X1 <- factor(melted_data$X1)
+melted_data$X2 <- factor(melted_data$X2, levels = rev(levels(factor(melted_data$X2))))
 ggplot(melted_data, aes(x = X1, y = X2, fill = value)) +
   geom_tile(color = "black") +
   geom_text(aes(label = round(value,2)), color = "white", size = 4) +
@@ -166,7 +167,17 @@ ggplot(reshape2::melt(degrees), aes(x = Var2, y = value, fill = Var1)) +
   geom_bar(stat = "identity", position = "fill") +
   scale_y_continuous(labels = scales::percent)
 
-apply(degrees, MARGIN = 1, mean)
+prop_degrees <- apply(degrees, MARGIN = 1, mean)
+degrees_df <- data.frame(variable = names(prop_degrees),
+                            value = as.numeric(prop_degrees))
+
+# Create the bar plot
+ggplot(degrees_df, aes(x = variable, y = value)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Mean Degrees",
+       x = "Variable",
+       y = "Mean Value") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 
