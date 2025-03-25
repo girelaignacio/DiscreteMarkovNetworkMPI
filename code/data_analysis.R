@@ -1,3 +1,5 @@
+library(igraph)
+
 # Look-up tables ----------------------------------------------------------
 
 ## Read data from OPHI global MPI. Then, combine data with the estimated graphs
@@ -72,6 +74,33 @@ country_list <- lapply(list.files("./results"),
 names(country_list) <- countries
 
 
+# Indicators global objects ------------------------------------------------
+
+replacements <- c(
+  "d_nutr" = "NU",
+  "d_cm" = "CM",
+  "d_educ" = "YS",
+  "d_satt" = "SA",
+  "d_ckfl" = "CF",
+  "d_sani" = "SN",
+  "d_wtr" = "DW",
+  "d_elct" = "EC",
+  "d_hsg" = "HO",
+  "d_asst" = "AS"
+)
+
+indicators_pallete <- c("#962b21", # d_nutr
+                        "#652525", # d_cm
+                        "#c6a9ab", # d_educ
+                        "#a68580", # d_satt
+                        "#afc4d1", # d_ckfl
+                        "#7d9eb6", # d_sani
+                        "#5e8199", # d_wtr
+                        "#3f6781", # d_elec
+                        "#174d68", # d_hsg
+                        "#00384f") # d_asst
+
+
 # Combine data ------------------------------------------------------------
 
 for (country in names(country_list)){
@@ -140,58 +169,74 @@ filter.DMN <- function(data,
 
 
 
-X <- filter.DMN(country_list, region = "None",conservative = FALSE)
+X <- filter.DMN(country_list, region = "None",c= 5,conservative = FALSE, censored = FALSE)
 
 y <- as.matrix(Reduce("+", X)/length(X))
+y <- y[indicators, indicators]
 
 library(ggplot2)
 melted_data <- reshape::melt(y)
-melted_data$X1 <- factor(melted_data$X1)
+melted_data$X1 <- factor(stringr::str_replace_all(melted_data$X1,replacements),
+                         levels = stringr::str_replace_all(indicators,replacements))
+melted_data$X2 <- factor(stringr::str_replace_all(melted_data$X2,replacements),
+                         levels = stringr::str_replace_all(indicators,replacements))
 melted_data$X2 <- factor(melted_data$X2, levels = rev(levels(factor(melted_data$X2))))
+
 ggplot(melted_data, aes(x = X1, y = X2, fill = value)) +
   geom_tile(color = "black") +
   geom_text(aes(label = round(value,2)), color = "white", size = 4) +
-  coord_fixed()
+  scale_fill_gradient(limits = c(0, 1)) +
+  labs(x = "", y = "", fill = "Proportion") +
+  coord_fixed() 
 
 
 
 
-library(igraph)
+
 degrees <- sapply(X, function(x){
   g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
   degree(g)
 }
 )
-  
+degrees <- degrees[indicators,]
+rownames(degrees) <- stringr::str_replace_all(rownames(degrees), replacements)
+
+zero_degree <- which(apply(degrees,MARGIN = 2, sum) == 0)
+
+degrees <- degrees[,-zero_degree]
+
+#### INDICATORS DISTRIBUTION
 ggplot(reshape2::melt(degrees), aes(x = Var2, y = value, fill = Var1)) + 
   geom_bar(stat = "identity", position = "fill") +
-  scale_y_continuous(labels = scales::percent)
+  scale_y_continuous(labels = scales::percent) + 
+  scale_fill_manual(values = indicators_pallete) + 
+  labs(x = "Countries", y = "Degree Distribution", fill = "Indicator") + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
+
+
+#### AVERAGE DEGREE BY INDICATOR
 prop_degrees <- apply(degrees, MARGIN = 1, mean)
-degrees_df <- data.frame(variable = names(prop_degrees),
+degrees_df <- data.frame(variable = factor(names(prop_degrees),
+                                           levels = replacements),
                             value = as.numeric(prop_degrees))
 
 # Create the bar plot
-ggplot(degrees_df, aes(x = variable, y = value)) +
-  geom_bar(stat = "identity", fill = "skyblue") +
-  labs(title = "Mean Degrees",
-       x = "Variable",
-       y = "Mean Value") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-
-
-
+ggplot(degrees_df, aes(x = factor(variable), y = value)) +
+  geom_bar(stat = "identity", fill = indicators_pallete) +
+  geom_text(aes(label = round(value,2),vjust = 2)) +
+  labs(title = "Average Degree by Indicator",
+       x = "Indicators",
+       y = "Average degree")
 
 # Cliques -----------------------------------------------------------------
 
 ## These can be interpreted as "conditional" deprivation bundles
 
 all_cliques_lists <- sapply(X, function(x){
+  x <- x[indicators, indicators]
+  rownames(x) <- colnames(x) <- stringr::str_replace_all(rownames(x), replacements)
   g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
-  components(g, mode = "weak")
   clq <- cliques(g, min = 2)
   clq_lists <- lapply(clq, function(y) sort(V(g)$name[y]))
   clique <- sapply(clq_lists, paste, collapse = ",")
@@ -202,15 +247,24 @@ clique_counts_table <- as.data.frame(table(all_cliques))
 # Convert to a data frame for easier handling
 clique_counts_df <- data.frame(clique = clique_counts_table$all_cliques,
                                count = clique_counts_table$Freq / length(X))
+clique_counts_df$order <- sapply(strsplit(as.character(clique_counts_df[,1]), ","), length)
 
 # Sort by count in descending order
 clique_counts_df <- clique_counts_df[order(clique_counts_df$count, decreasing = TRUE), ]
 
-ggplot(clique_counts_df[clique_counts_df$count>0.5,], aes(x = reorder(clique, count), y = count)) +
-  geom_bar(stat = "identity") +
+# Clique order
+clique_order <- 3
+
+cliques_to_plot <- clique_counts_df[(clique_counts_df$order == clique_order),]
+if (length(cliques_to_plot$count) > 15){
+  cliques_to_plot <- cliques_to_plot[c(1:15),]
+}
+
+ggplot(cliques_to_plot, aes(x = reorder(clique, count), y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
   coord_flip() +  # Keep the horizontal bars
   theme(axis.text.y = element_text(size = 6, angle = 0, hjust = 1)) + # Adjust size and angle
-  labs(x = "Clique", y = "Count", title = "Clique Occurrences")
+  labs(x = "Clique", y = "Occurences", title = "Clique Occurrences (in proportions)")
 
 
 # Neighborhoods ----------------------------------------------------------
@@ -218,19 +272,48 @@ ggplot(clique_counts_df[clique_counts_df$count>0.5,], aes(x = reorder(clique, co
 # Which indicators "isolates" an indicator
 # The more important variables that explain the occurrence of a variable
 
-neighborhood(g)
-
+x <- X[[1]]
+x <- x[indicators,indicators]
+g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
+NB <- neighborhood(g)
+names(NB) <- indicators
+NB
 
 # Centrality --------------------------------------------------------------
+
+# Degree Centrality:
+#   Definition: Counts the number of connections (edges) a node has. 
+# Use Case: Simple and intuitive; good for identifying nodes with many direct connections. 
+# Small Graph considerations: Very useful in small graphs. Easy to calculate, and gives a basic idea of node importance.
+# Betweenness Centrality:
+#   Definition: Measures how often a node lies on the shortest paths between other nodes.  
+# Use Case: Identifies nodes that act as bridges or bottlenecks in the network. 
+# Small Graph considerations: Very useful to find those nodes that connect different portions of a small graph. If the small graph is very connected, betweeness centrality can be less useful, as most nodes will be on many short paths.
+# Closeness Centrality:
+#   Definition: Measures the average shortest path distance from a node to all other nodes.  
+# Use Case: Identifies nodes that are close to all other nodes in the network.
+# Small Graph considerations: Good for finding nodes that can quickly reach other nodes. In small, tightly connected graphs, closeness centrality may not vary much between nodes. If your small graph is not well connected, it will show you the nodes that are the most efficient at reaching the other nodes.  
+# Eigenvector Centrality:
+#   Definition: Measures a node's influence based on the influence of its neighbors. Nodes with connections to highly influential nodes have higher eigenvector centrality. 
+# Use Case: Identifies nodes that are connected to important nodes. 
+# Small Graph considerations: Useful for understanding influence within the network. In small graphs, the influence of a few high-degree nodes can quickly propagate.
+
+# Main Differences and Considerations for Small Graphs:
+# 
+# Focus:
+# Degree centrality focuses on direct connections. 
+# Betweenness centrality focuses on bridging roles. 
+# Closeness centrality focuses on proximity. 
+# Eigenvector focus on influence.
+
 
 ls <- lapply(X, function(x){
   g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
   scores <- reshape2::melt(eigen_centrality(g)$vector)
   scores <- reshape2::melt(betweenness(g, directed = FALSE))
   scores$variable <- rownames(scores)
-  headcounts <- sheet_censored[tolower(sheet_censored$iso) == attr(x,"country"),6:15]/100
+  headcounts <- sheet_raw[tolower(sheet_raw$iso) == attr(x,"country"),6:15]/100
   headcounts <- suppressMessages(reshape2::melt(headcounts[,indicators]))
-  
   merged_df <- merge(scores, headcounts, by = "variable")
   colnames(merged_df) <- c("indicator","score","headcount")
   merged_df$country <- attr(x,"country")
@@ -243,3 +326,73 @@ ggplot(do.call("rbind",ls)) +
 
 
 plot(eigen_centrality(g)$vector,headcounts[,indicators])
+
+
+
+
+
+
+
+Y <- filter.DMN(country_list,country ="Namibia")
+ctry <- names(Y)
+if(attr(Y[[ctry]],"censored") == T){
+  indicators_values <- attributes(country_list[[ctry]])$censored
+  }else{
+  indicators_values <- attributes(country_list[[ctry]])$raw
+}
+Y <- do.call("rbind", Y)
+rownames(Y) <- colnames(Y)
+Y <- Y[indicators,indicators]
+graph <- graph_from_adjacency_matrix(as.matrix(Y), mode = "undirected")
+
+V(graph)$color <- indicators_pallete
+V(graph)$name <- stringr::str_replace_all(V(graph)$name, replacements)
+
+plot(graph, 
+     vertex.size = indicators_values,  # Set node sizes
+     vertex.label = V(graph)$name, # Add node labels (optional)
+     edge.width = 2,
+     vertex.color = V(graph)$color,
+     vertex.label.color = "black",
+     main = "Conditional Dependencies \nbetween Poverty indicators",
+     layout = layout_in_circle(graph))
+
+names(indicators_values) <- stringr::str_replace_all(names(indicators_values), replacements)
+headcounts_df <- data.frame(variable = factor(names(indicators_values),
+                                           levels = replacements),
+                         value = as.numeric(indicators_values))
+
+# Create the bar plot
+ggplot(headcounts_df, aes(x = factor(variable), y = value)) +
+  geom_bar(stat = "identity", fill = indicators_pallete) +
+  geom_text(aes(label = round(value,2),vjust = -1.5)) +
+  ylim(0,100) + 
+  labs(title = "Headcount Ratios",
+       x = "Indicators",
+       y = "Headcount Ratio (%)")
+
+centrality.measures <- c("Degree","Betweenness", "Closeness","Eigenvector")
+cen <- "Betweeness"
+if(cen == "Degree"){
+  centrality <- centr_degree(graph)$res
+  names(centrality) <- names(replacements)
+  names(centrality) <- str_replace_all(names(centrality), replacements)
+  } else if (cen == "Betweenness"){
+    centrality <- betweenness(graph)
+  } else if (cen == "Closeness"){
+    centrality <- closeness(graph)
+    centrality[is.na(centrality)] = 0
+  } else {
+    centrality <- eigen_centrality(graph)$vector
+  }
+centrality_df <- data.frame(variable = factor(names(centrality),
+                                              levels = replacements),
+                            value = as.numeric(centrality))
+ggplot(centrality_df, aes(x = reorder(variable,value), y = value)) +
+  geom_bar(stat = "identity", fill = "#a68580") +
+  geom_text(aes(label = round(value,2), hjust = 0)) +
+  labs(title = "Centrality Measure",
+       x = "Indicators",
+       y = "Centrality level") + 
+  coord_flip()
+
