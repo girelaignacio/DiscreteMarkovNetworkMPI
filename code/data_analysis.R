@@ -137,7 +137,7 @@ for (country in names(country_list)){
 
 # Save data ---------------------------------------------------------------
 
-saveRDS(country_list,"./app/data.rds")
+saveRDS(country_list,"./app/data/data.rds")
 
 
 # Get the desired adjacency matrices
@@ -272,7 +272,7 @@ ggplot(cliques_to_plot, aes(x = reorder(clique, count), y = count)) +
 # Which indicators "isolates" an indicator
 # The more important variables that explain the occurrence of a variable
 
-x <- X[[1]]
+x <- X[[6]]
 x <- x[indicators,indicators]
 g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
 NB <- neighborhood(g)
@@ -309,23 +309,24 @@ NB
 
 ls <- lapply(X, function(x){
   g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
-  scores <- reshape2::melt(eigen_centrality(g)$vector)
-  scores <- reshape2::melt(betweenness(g, directed = FALSE))
-  scores$variable <- rownames(scores)
-  headcounts <- sheet_raw[tolower(sheet_raw$iso) == attr(x,"country"),6:15]/100
-  headcounts <- suppressMessages(reshape2::melt(headcounts[,indicators]))
-  merged_df <- merge(scores, headcounts, by = "variable")
-  colnames(merged_df) <- c("indicator","score","headcount")
-  merged_df$country <- attr(x,"country")
-  return(merged_df)
+  #scores <- eigen_centrality(g)$vector
+  scores <- betweenness(g, directed = FALSE)
+  names(scores) <- indicators
+  return(scores)
 })
 
-ggplot(do.call("rbind",ls)) + 
-  geom_point(aes(x = score,y = headcount, color = indicator)) + 
-  theme(legend.position = "none")
+plot.data <- apply(do.call("rbind",ls), MARGIN = 2, mean)
 
+plot.data <- reshape2::melt(plot.data,value.name = "measure")
+plot.data$indicator <- rownames(plot.data)
 
-plot(eigen_centrality(g)$vector,headcounts[,indicators])
+ggplot(plot.data, aes(x = reorder(indicator,measure), y = measure)) +
+  geom_bar(stat = "identity", fill = "#a68580") +
+  geom_text(aes(label = round(measure,2), hjust = 0)) +
+  labs(title = "Centrality Measure",
+       x = "Indicators",
+       y = "Centrality level") + 
+  coord_flip()
 
 
 

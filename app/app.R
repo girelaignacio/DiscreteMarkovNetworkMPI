@@ -101,8 +101,10 @@ ui <- fluidPage(
              conditionalPanel(
                condition = "input.summary == 'Cliques'",
                sliderInput("clique_order", "Clique Order:",
-                           min = 2, max = 5, value = 2, step = 1)
-             )
+                           min = 2, max = 5, value = 2, step = 1)),
+             conditionalPanel(
+               condition = "input.summary == 'Centrality'",
+               radioButtons("centrality_measure", "Measure", centrality.measures, selected = "Degree"))
              ),
              div( #~~ Main panel ~~#
                style = "flex-grow:1; resize:horizontal; overflow: hidden; position:relative; margin-left: 310px",
@@ -128,7 +130,7 @@ ui <- fluidPage(
                  ),
                  fluidRow(
                    column(6, plotOutput("centrality")),
-                   column(6, verbatimTextOutput("plot4"))
+                   column(6, verbatimTextOutput("country_briefing"))
                  )
                ) # end of second div
              ) # end of first div
@@ -253,7 +255,37 @@ server <- function(input, output, session) {
         coord_flip() +  # Keep the horizontal bars
         theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1)) + # Adjust size and angle
         labs(x = "Clique", y = "Occurences", title = "Clique Occurrences (in proportions)")
-      
+    } 
+    else if (input$summary == "Centrality"){
+      # Centrality indicators (average)
+      # All measure in list
+      selected_measure <- input$centrality_measure
+      measures_list <- lapply(X(), function(x){
+        g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
+        if (selected_measure == "Degree"){
+          scores <- degree(g)
+        } else if (selected_measure == "Betweenness") {
+          scores <- betweenness(g, directed = FALSE)
+        } else if (selected_measure == "Closeness"){
+          scores <- closeness(g)
+          scores[which(is.na(scores))] <- 0
+        } else if (selected_measure == "Eigenvector"){
+          scores <- eigen_centrality(g)$vector
+        }
+        names(scores) <- indicators
+        return(scores)
+      })
+      plot.data <- apply(do.call("rbind",measures_list), MARGIN = 2, mean)
+      plot.data <- melt(plot.data,value.name = "measure")
+      plot.data$indicator <- rownames(plot.data)
+      print(selected_measure)
+      ggplot(plot.data, aes(x = reorder(indicator,measure), y = measure)) +
+        geom_bar(stat = "identity", fill = "#a68580") +
+        geom_text(aes(label = round(measure,2), hjust = 0)) +
+        labs(title = "Centrality Measure",
+             x = "Indicators",
+             y = "Centrality level") + 
+        coord_flip()
     }
   })
   
@@ -339,7 +371,7 @@ server <- function(input, output, session) {
       coord_flip()
   })
   
-  output$plot4 <- renderText({
+  output$country_briefing <- renderText({
     ctry <- names(Y())
     paste("Country Attributes: ",
           "\n",
