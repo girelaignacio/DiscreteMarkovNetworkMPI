@@ -278,7 +278,7 @@ server <- function(input, output, session) {
       plot.data <- apply(do.call("rbind",measures_list), MARGIN = 2, mean)
       plot.data <- melt(plot.data,value.name = "measure")
       plot.data$indicator <- rownames(plot.data)
-      print(selected_measure)
+      
       ggplot(plot.data, aes(x = reorder(indicator,measure), y = measure)) +
         geom_bar(stat = "identity", fill = "#a68580") +
         geom_text(aes(label = round(measure,2), hjust = 0)) +
