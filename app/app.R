@@ -281,7 +281,7 @@ server <- function(input, output, session) {
       
       ggplot(plot.data, aes(x = reorder(indicator,measure), y = measure)) +
         geom_bar(stat = "identity", fill = "#a68580") +
-        geom_text(aes(label = round(measure,2), hjust = 0)) +
+        geom_text(aes(label = round(measure,2), hjust = -0.5)) +
         labs(title = "Centrality Measure",
              x = "Indicators",
              y = "Centrality level") + 
@@ -364,7 +364,7 @@ server <- function(input, output, session) {
                                 value = as.numeric(centrality))
     ggplot(centrality_df, aes(x = reorder(variable,value), y = value)) +
       geom_bar(stat = "identity", fill = "#a68580") +
-      geom_text(aes(label = round(value,2), hjust = 0)) +
+      geom_text(aes(label = round(value,2), hjust = - 0.3)) +
       labs(title = "Centrality Measure",
            x = "Indicators",
            y = "Centrality level") + 
