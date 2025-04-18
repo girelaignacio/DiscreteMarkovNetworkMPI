@@ -12,14 +12,14 @@ indicators <- c('d_nutr', 'd_cm',
                 'd_educ', 'd_satt',
                 'd_ckfl', 'd_sani','d_wtr','d_elct', 'd_hsg', 'd_asst')
 
-sheet1 <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", skip = 7)
-sheet1 <- sheet1[,2:7]
+sheet1 <- readxl::read_xlsx("./utils/Table 1 National Results MPI 2024.xlsx", skip = 7)
+sheet1 <- sheet1[,2:9]
 sheet1 <- na.omit(sheet1)
-colnames(sheet1) <- c("iso","country","region","survey","year","mpi")
+colnames(sheet1) <- c("iso","country","region","survey","year","mpi","h","a")
 sheet1 <- sheet1[(tolower(sheet1$iso)) %in% countries,]
 sheet1$iso <- tolower(sheet1$iso)
 
-sheet_censored <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", sheet = 2, skip = 7)
+sheet_censored <- readxl::read_xlsx("./utils/Table 1 National Results MPI 2024.xlsx", sheet = 2, skip = 7)
 sheet_censored <- sheet_censored[,c(2:6,8:17)]
 sheet_censored <- na.omit(sheet_censored)
 colnames(sheet_censored) <- c("iso","country","region","survey","year",
@@ -30,7 +30,7 @@ sheet_censored$iso <- tolower(sheet_censored$iso)
 sheet_censored <- sheet_censored[,c("iso","country","region","survey","year",
                                     indicators)]
 
-sheet_raw <- readxl::read_xlsx("./data/Table 1 National Results MPI 2024.xlsx", sheet = 6, skip = 7)
+sheet_raw <- readxl::read_xlsx("./utils/Table 1 National Results MPI 2024.xlsx", sheet = 6, skip = 7)
 sheet_raw <- sheet_raw[,c(2:6,8:17)]
 sheet_raw <- na.omit(sheet_censored)
 colnames(sheet_censored) <- c("iso","country","region","survey","year",
@@ -56,22 +56,27 @@ country_list <- lapply(list.files("./results"),
                                                   'd_elct', 'd_wtr', 'd_sani','d_hsg', 'd_ckfl', 'd_asst') 
                                   rownames(X) <- colnames(X) <- indicators
                                   
-                                  attr(X,"country") <- country_iso
-                                  attr(X,"file name") <- y
-                                  attr(X, "censored") <- if(grepl("_mpi_poor_", y)){TRUE}else{FALSE}
-                                  attr(X, "conservative") <- if(grepl("_nconservative_", y)){FALSE}else{TRUE}
-                                  attr(X,"c") <- as.numeric(stringr::str_extract(y, "(?<=e_c)(.*?)(?=\\.txt)"))
-                                  attr(X, "data") <- "DMN" # Discrete Markov Network graph
+                                  #attr(X,"country") <- country_iso
+                                  #attr(X,"file name") <- y
+                                  ##attr(X, "censored") <- if(grepl("_mpi_poor_", y)){TRUE}else{FALSE}
+                                  #attr(X, "conservative") <- if(grepl("_nconservative_", y)){FALSE}else{TRUE}
+                                  #attr(X,"c") <- as.numeric(stringr::str_extract(y, "(?<=e_c)(.*?)(?=\\.txt)"))
+                                  #attr(X, "data") <- "DMN" # Discrete Markov Network graph
                                   return(X)
                                 })
-         attr(adj_matrices,"country") <- country_iso
-         attr(adj_matrices,"survey") <- gsub("[0-9]+","",sub(".*_", "", x))
-         attr(adj_matrices,"year") <- gsub("[a-z]+","",sub(".*_", "", x))
-         
+         #attr(adj_matrices,"country") <- country_iso
+         #attr(adj_matrices,"survey") <- gsub("[0-9]+","",sub(".*_", "", x))
+         #attr(adj_matrices,"year") <- gsub("[a-z]+","",sub(".*_", "", x))
+         names(adj_matrices) <- file_names
          return(adj_matrices)
        })
 
+lookuptable <- sheet1
+lookuptable <- merge(lookuptable, sheet_censored, by = c("iso","country","region","survey","year"))
+lookuptable <- merge(lookuptable, sheet_raw, by = c("iso","country","region","survey","year"), suffixes = c("_censored","_uncensored"))
+
 names(country_list) <- countries
+X <- unlist(country_list, recursive = F)
 
 
 # Indicators global objects ------------------------------------------------
@@ -134,42 +139,82 @@ for (country in names(country_list)){
   attr(country_list[[country]],"raw") <- raw_indicators
 }
 
-
 # Save data ---------------------------------------------------------------
 
-saveRDS(country_list,"./app/data/data.rds")
+saveRDS(X,"./app/data/data.rds")
+saveRDS(lookuptable,"./app/data/lookup.rds")
+
+
 
 
 # Get the desired adjacency matrices
-filter.DMN <- function(data, 
+filter_results <- function(X, 
                        country = NULL, region = "None",
                        c = 0, censored = TRUE, conservative = TRUE){
   # Filter by country
   if(!is.null(country)){
-    data <- data[sapply(data, function(x) attr(x,"country") == country)]
+    X <- X[grep(lookuptable$iso[which(lookuptable$country == country)], names(X)) ]
+    #data <- data[sapply(data, function(x) attr(x,"country") == country)]
   }
   
   # Filter by region
   if(region != "None"){
-    data <- data[sapply(data, function(x) attr(x,"region") == region)]
+    X <- X[substr(names(X),1,3) %in% lookuptable$iso[which(lookuptable$region == region)]]
+    #data <- data[sapply(data, function(x) attr(x,"region") == region)]
   }
   
-  # Filter graphs adjacency matrices by penalization value (c), covariate 
-  # (raw or censored), and criterion (conservative or non-conservative)
-  adjacency_matrices <- sapply(data, function(x){
-                              condition <- bquote(attr(y,'c') == .(c) &
-                                                  attr(y,'censored') == .(censored) &
-                                                  attr(y,"conservative") == .(conservative))
-                              idx <- which(sapply(x, function(y) if(eval(condition)){TRUE}else{FALSE}) == TRUE)
-                              return(x[idx])
-                              }
-  )
-  return(adjacency_matrices)
+  # Filter by penalization value c
+  X <- X[grep(stringr::str_c("_c",c,".txt"), names(X))]
+  
+  # Filter by covariate (raw or mpi_poor)
+  if (censored == TRUE){
+    X <- X[grep("_mpi_poor_", names(X))]
+  } else {
+    X <- X[grep("_raw_", names(X))]
+  }
+  
+  # Filter by criterion
+  if (conservative == TRUE){
+    X <- X[grep("_conservative_", names(X))]
+  } else {
+    X <- X[grep("_nconservative_", names(X))]
+  }
+  
+  #names(X) <- NULL
+  return(X)
 }
 
 
 
-X <- filter.DMN(country_list, region = "None",c= 5,conservative = FALSE, censored = FALSE)
+Y <- filter_results(X, country = "Argentina",c= 0,conservative = FALSE, censored = TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 y <- as.matrix(Reduce("+", X)/length(X))
 y <- y[indicators, indicators]

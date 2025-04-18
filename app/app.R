@@ -5,7 +5,6 @@ library(ggplot2)
 library(reshape2)
 library(scales)
 library(stringr)
-library(qgraph)
 
 # Utils functions ---------------------------------------------------------
 
@@ -35,16 +34,55 @@ filter.DMN <- function(data,
   return(adjacency_matrices)
 }
 
+# Get the desired adjacency matrices
+filter_results <- function(X, 
+                           country = NULL, region = "None",
+                           c = 0, censored = TRUE, conservative = TRUE){
+  # Filter by country
+  if(!is.null(country)){
+    X <- X[grep(lookuptable$iso[which(lookuptable$country == country)], names(X)) ]
+    #data <- data[sapply(data, function(x) attr(x,"country") == country)]
+  }
+  
+  # Filter by region
+  if(region != "None"){
+    X <- X[substr(names(X),1,3) %in% lookuptable$iso[which(lookuptable$region == region)]]
+    #data <- data[sapply(data, function(x) attr(x,"region") == region)]
+  }
+  
+  # Filter by penalization value c
+  X <- X[grep(stringr::str_c("_c",c,".txt"), names(X))]
+  
+  # Filter by covariate (raw or mpi_poor)
+  if (censored == TRUE){
+    X <- X[grep("_mpi_poor_", names(X))]
+  } else {
+    X <- X[grep("_raw_", names(X))]
+  }
+  
+  # Filter by criterion
+  if (conservative == TRUE){
+    X <- X[grep("_conservative_", names(X))]
+  } else {
+    X <- X[grep("_nconservative_", names(X))]
+  }
+  
+  #names(X) <- NULL
+  return(X)
+}
+
 # Load data ----------------------------------------------------------------
 
 data <- readRDS('data/data.rds')
+
+lookup <- readRDS('data/lookup.rds')
 
 
 # Global input objects ----------------------------------------------------
 
 # global objects for filtering
-countries.names <- sapply(data, function(x) attr(x,"country"))
-names(countries.names) <- NULL
+countries.names <- lookup$country
+#names(countries.names) <- NULL
 covariate <- c("Uncensored", "Censored")
 summary.measures <- c("Edge occurrences","Degree Distribution","Average Degree","Cliques", "Centrality")
 centrality.measures <- c("Degree","Betweenness", "Closeness","Eigenvector")
@@ -158,7 +196,7 @@ server <- function(input, output, session) {
   
   # Filtered data
   X <- reactive({
-    filter.DMN(data, country = NULL, region = input$region, c = input$c,
+    filter_results(data, country = NULL, region = input$region, c = input$c,
                censored = covariate(), conservative = FALSE)
   })
   
@@ -191,9 +229,15 @@ server <- function(input, output, session) {
       })
     degrees <- degrees[indicators,]
     rownames(degrees) <- stringr::str_replace_all(rownames(degrees), replacements)
-    zero_degree <- which(apply(degrees,MARGIN = 2, sum) == 0)
-    degrees <- degrees[,-zero_degree]
-    ggplot(reshape2::melt(degrees), aes(x = Var2, y = value, fill = Var1)) + 
+    zero_degree <- which(apply(unname(degrees),MARGIN = 2, sum) == 0)
+    if (!(is.integer(zero_degree) && length(zero_degree) == 0)){
+      degrees <- degrees[,-zero_degree]
+      }
+    
+    ## Plot
+    plt_data <- reshape2::melt(degrees)
+    plt_data$Var2 <- substr(plt_data$Var2,1,3)
+    ggplot(plt_data, aes(x = Var2, y = value, fill = Var1)) + 
       geom_bar(stat = "identity", position = "fill") +
       scale_y_continuous(labels = scales::percent) + 
       scale_fill_manual(values = indicators_pallete) + 
@@ -277,7 +321,11 @@ server <- function(input, output, session) {
       })
       plot.data <- apply(do.call("rbind",measures_list), MARGIN = 2, mean)
       plot.data <- melt(plot.data,value.name = "measure")
+      
+      rownames(plot.data) <- str_replace_all(rownames(plot.data), replacements)
+      
       plot.data$indicator <- rownames(plot.data)
+      
       
       ggplot(plot.data, aes(x = reorder(indicator,measure), y = measure)) +
         geom_bar(stat = "identity", fill = "#a68580") +
@@ -290,17 +338,17 @@ server <- function(input, output, session) {
   })
   
   Y <- reactive({
-    filter.DMN(data, country = input$country, c = input$c,
+    filter_results(data, country = input$country, c = input$c,
                censored = covariate(), conservative = FALSE)
   })
   
   output$graph <- renderPlot({
     ctry <- names(Y())
-    if(attr(Y()[[ctry]],"censored") == T){
-      indicators_values <- attributes(data[[ctry]])$censored
-    }else{
-      indicators_values <- attributes(data[[ctry]])$raw
-    }
+    # if(attr(Y()[[ctry]],"censored") == T){
+    #   indicators_values <- attributes(data[[ctry]])$censored
+    # }else{
+    #   indicators_values <- attributes(data[[ctry]])$raw
+    # }
     Y <- do.call("rbind", Y())
     rownames(Y) <- colnames(Y)
     Y <- Y[indicators,indicators]
@@ -318,13 +366,23 @@ server <- function(input, output, session) {
   }) # end of output$graph
   
   output$headcounts <- renderPlot({
-    ctry <- names(Y())
-    if(attr(Y()[[ctry]],"censored") == T){
-      indicators_values <- attributes(data[[ctry]])$censored
-    }else{
-      indicators_values <- attributes(data[[ctry]])$raw
+    ctry <- substr(names(Y()),1,3)
+    # if(attr(Y()[[ctry]],"censored") == T){
+    #   indicators_values <- attributes(data[[ctry]])$censored
+    # }else{
+    #   indicators_values <- attributes(data[[ctry]])$raw
+    # }
+    
+    if (covariate() == TRUE){
+      indicators_values <- lookup[lookup$iso == ctry, grep("_censored", colnames(lookup))]
+    } else {
+      indicators_values <- lookup[lookup$iso == ctry, grep("_uncensored", colnames(lookup))]
     }
+    names(indicators_values) <- gsub(pattern = "_censored",
+                                     replacement = "", 
+                                     x = names(lookup[lookup$iso == ctry, grep("_censored", colnames(lookup))]))
     names(indicators_values) <- stringr::str_replace_all(names(indicators_values), replacements)
+    
     headcounts_df <- data.frame(variable = factor(names(indicators_values),
                                                   levels = replacements),
                                 value = as.numeric(indicators_values))
@@ -372,18 +430,22 @@ server <- function(input, output, session) {
   })
   
   output$country_briefing <- renderText({
-    ctry <- names(Y())
+    ctry <- substr(names(Y()),1,3)
     paste("Country Attributes: ",
           "\n",
-          sprintf("Country: %s", attr(data[[ctry]],"country")),
+          sprintf("Country: %s", lookup$country[lookup$iso == ctry]),
           "\n",
-          sprintf("Region: %s", attr(data[[ctry]],"region")),
+          sprintf("Region: %s", lookup$region[lookup$iso == ctry]),
           "\n",
-          sprintf("MPI: %.3f", round(attr(data[[ctry]],"mpi"),3)),
+          sprintf("MPI: %.3f", round(lookup$mpi[lookup$iso == ctry],3)),
           "\n",
-          sprintf("Survey: %s", gsub("-","",toupper(attr(data[[ctry]],"survey")))),
+          sprintf("H: %.3f%%", round(lookup$h[lookup$iso == ctry],3)),
           "\n",
-          sprintf("Year: %s",  str_c("20",gsub("-","-20",attr(data[[ctry]],"year"))))
+          sprintf("A: %.3f%%", round(lookup$a[lookup$iso == ctry],3)),
+          "\n",
+          sprintf("Survey: %s", lookup$survey[lookup$iso == ctry]),
+          "\n",
+          sprintf("Year: %s",  lookup$year[lookup$iso == ctry])
           )
   })
 }
