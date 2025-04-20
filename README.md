@@ -2,7 +2,14 @@
 
 This repository contains all files and code to reproduce the findings of the paper "Global Patterns of Multidimensional Poverty: a Markov network approach to deprivation interlinkages analysis", by Girela, I., García Arancibia, R. & Koplin, E.
 
+|                                        |          |          |
+|:--------------------:|:--------------------:|:--------------------:|
+| ![](images/argentina.png){width="97%"} |  ![](images/ethiopia.png){width="97%"}         | ![](images/thailand.png){width="97%"}         |
+|               Argentina                | Ethiopia | Thailand |
+
 ### Abstract
+
+This paper introduces a novel graph-based framework, leveraging discrete Markov networks, to analyze the intricate interlinkages among multidimensional poverty indicators. Addressing limitations of existing approaches that often overlook higher-order interactions and rely on restrictive positivity assumptions, our model explicitly represents complex dependencies and accommodates structural zeros prevalent in real-world poverty data. We apply this framework to global MPI data from 63 developing countries, revealing key patterns of conditional dependencies between deprivations and quantifying the influence of individual indicators within the network. By comparing countries with similar overall MPI scores, we demonstrate the model's ability to uncover distinct underlying patterns of deprivation interlinkages, insights often masked by traditional MPI decomposition. This approach offers a more nuanced and policy-relevant tool for understanding the multifaceted nature of poverty and designing more effective, integrated interventions.
 
 ### Explore our findings using the Shiny app!
 
