@@ -4,7 +4,7 @@ This repository contains all files and code to reproduce the findings of the pap
 
 |                                        |          |          |
 |:--------------------:|:--------------------:|:--------------------:|
-| ![](images/argentina.png){width="97%"} |  ![](images/ethiopia.png){width="97%"}         | ![](images/thailand.png){width="97%"}         |
+| ![](images/argentina.png) |  ![](images/ethiopia.png)        | ![](images/thailand.png)       |
 |               Argentina                | Ethiopia | Thailand |
 
 ### Abstract
