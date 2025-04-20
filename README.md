@@ -2,10 +2,10 @@
 
 This repository contains all files and code to reproduce the findings of the paper "Global Patterns of Multidimensional Poverty: a Markov network approach to deprivation interlinkages analysis", by Girela, I., García Arancibia, R. & Koplin, E.
 
-|                                        |          |          |
-|:--------------------:|:--------------------:|:--------------------:|
-| ![](images/argentina.png) |  ![](images/ethiopia.png)        | ![](images/thailand.png)       |
-|               Argentina                | Ethiopia | Thailand |
+|                           |                          |                          |
+|:-------------------------:|:------------------------:|:------------------------:|
+| ![](images/argentina.png) | ![](images/ethiopia.png) | ![](images/thailand.png) |
+|         Argentina         |         Ethiopia         |         Thailand         |
 
 ### Abstract
 
