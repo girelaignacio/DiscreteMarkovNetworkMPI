@@ -1,0 +1,12 @@
+name: MarkovNetworkMPI
+title: MarkovNetworkMPI
+username: girelaignacio
+account: girelaignacio
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14575225
+bundleId: 10154041
+url: https://girelaignacio.shinyapps.io/MarkovNetworkMPI/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

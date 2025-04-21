@@ -5,34 +5,9 @@ library(ggplot2)
 library(reshape2)
 library(scales)
 library(stringr)
+library(qgraph)
 
 # Utils functions ---------------------------------------------------------
-
-filter.DMN <- function(data, 
-                       country = NULL, region = "None",
-                       c = 0, censored = TRUE, conservative = TRUE){
-  # Filter by country
-  if(!is.null(country)){
-    data <- data[sapply(data, function(x) attr(x,"country") == country)]
-  }
-  
-  # Filter by region
-  if(region != "None"){
-    data <- data[sapply(data, function(x) attr(x,"region") == region)]
-  }
-  
-  # Filter graphs adjacency matrices by penalization value (c), covariate 
-  # (raw or censored), and criterion (conservative or non-conservative)
-  adjacency_matrices <- sapply(data, function(x){
-    condition <- bquote(attr(y,'c') == .(c) &
-                          attr(y,'censored') == .(censored) &
-                          attr(y,"conservative") == .(conservative))
-    idx <- which(sapply(x, function(y) if(eval(condition)){TRUE}else{FALSE}) == TRUE)
-    return(x[idx])
-  }
-  )
-  return(adjacency_matrices)
-}
 
 # Get the desired adjacency matrices
 filter_results <- function(X, 
@@ -40,14 +15,12 @@ filter_results <- function(X,
                            c = 0, censored = TRUE, conservative = TRUE){
   # Filter by country
   if(!is.null(country)){
-    X <- X[grep(lookuptable$iso[which(lookuptable$country == country)], names(X)) ]
-    #data <- data[sapply(data, function(x) attr(x,"country") == country)]
+    X <- X[grep(lookup$iso[which(lookup$country == country)], names(X)) ]
   }
   
   # Filter by region
   if(region != "None"){
-    X <- X[substr(names(X),1,3) %in% lookuptable$iso[which(lookuptable$region == region)]]
-    #data <- data[sapply(data, function(x) attr(x,"region") == region)]
+    X <- X[substr(names(X),1,3) %in% lookup$iso[which(lookup$region == region)]]
   }
   
   # Filter by penalization value c
@@ -66,8 +39,6 @@ filter_results <- function(X,
   } else {
     X <- X[grep("_nconservative_", names(X))]
   }
-  
-  #names(X) <- NULL
   return(X)
 }
 
@@ -197,14 +168,12 @@ server <- function(input, output, session) {
   # Filtered data
   X <- reactive({
     filter_results(data, country = NULL, region = input$region, c = input$c,
-               censored = covariate(), conservative = FALSE)
+               censored = covariate(), conservative = TRUE)
   })
   
   ## Heatmap
   output$plots <- renderPlot({
     if (input$summary == "Edge occurrences") {
-      # X <- filter.DMN(data, country = NULL, region = input$region, c = input$c,
-      #          censored = TRUE, conservative = FALSE)
       temp <- as.matrix(Reduce("+", X())/length(X()))
       temp <- temp[indicators, indicators]
       melted_data <- melt(temp)
@@ -213,12 +182,12 @@ server <- function(input, output, session) {
       melted_data$Var2 <- factor(str_replace_all(melted_data$Var2,replacements),
                                levels = str_replace_all(indicators,replacements))
       melted_data$Var2 <- factor(melted_data$Var2, levels = rev(levels(factor(melted_data$Var2))))
-      #melted_data$Var1 <- factor(melted_data$Var1)
-      #melted_data$Var2 <- factor(melted_data$Var2, levels = rev(levels(factor(melted_data$Var2))))
       ggplot(melted_data, aes(x = Var1, y = Var2, fill = value)) +
         geom_tile(color = "black") +
         geom_text(aes(label = round(value,2)), color = "white", size = 4) +
         scale_fill_gradient(limits = c(0, 1)) +
+        theme(axis.text.x = element_text(size = 13),
+              axis.text.y = element_text(size = 13)) + 
         labs(x = "", y = "", fill = "Proportion", title = "Edge occurrence (in proportions)") +
         coord_fixed() 
     }
@@ -344,35 +313,15 @@ server <- function(input, output, session) {
   
   output$graph <- renderPlot({
     ctry <- names(Y())
-    # if(attr(Y()[[ctry]],"censored") == T){
-    #   indicators_values <- attributes(data[[ctry]])$censored
-    # }else{
-    #   indicators_values <- attributes(data[[ctry]])$raw
-    # }
     Y <- do.call("rbind", Y())
     rownames(Y) <- colnames(Y)
     Y <- Y[indicators,indicators]
-    #graph <- graph_from_adjacency_matrix(as.matrix(Y), mode = "undirected")
-    # plot(graph,
-    #      vertex.size = indicators_values,  # Set node sizes
-    #      vertex.label = stringr::str_replace_all(V(graph)$name, replacements), # Add node labels (optional)
-    #      edge.width = 2,
-    #      vertex.color = indicators_pallete,
-    #      vertex.label.color = "black",
-    #      main = "Conditional Dependencies \nbetween Poverty indicators",
-    #      layout = layout_in_circle(graph))
     qgraph(input = as.matrix(Y), color = indicators_pallete, layout = "circle",
-          labels = str_replace_all(colnames(Y), replacements))
+          labels = str_replace_all(colnames(Y), replacements), label.cex = 1.3)
   }) # end of output$graph
   
   output$headcounts <- renderPlot({
     ctry <- substr(names(Y()),1,3)
-    # if(attr(Y()[[ctry]],"censored") == T){
-    #   indicators_values <- attributes(data[[ctry]])$censored
-    # }else{
-    #   indicators_values <- attributes(data[[ctry]])$raw
-    # }
-    
     if (covariate() == TRUE){
       indicators_values <- lookup[lookup$iso == ctry, grep("_censored", colnames(lookup))]
     } else {
@@ -439,9 +388,9 @@ server <- function(input, output, session) {
           "\n",
           sprintf("MPI: %.3f", round(lookup$mpi[lookup$iso == ctry],3)),
           "\n",
-          sprintf("H: %.3f%%", round(lookup$h[lookup$iso == ctry],3)),
+          sprintf("H: %.2f%%", round(lookup$h[lookup$iso == ctry],2)),
           "\n",
-          sprintf("A: %.3f%%", round(lookup$a[lookup$iso == ctry],3)),
+          sprintf("A: %.2f%%", round(lookup$a[lookup$iso == ctry],2)),
           "\n",
           sprintf("Survey: %s", lookup$survey[lookup$iso == ctry]),
           "\n",
