@@ -12,19 +12,16 @@ library(qgraph)
 # Get the desired adjacency matrices
 filter_results <- function(X, 
                            country = NULL, region = "None",
-                           c = 0, censored = TRUE, conservative = TRUE){
+                           censored = TRUE, conservative = TRUE){
   # Filter by country
   if(!is.null(country)){
     X <- X[grep(lookup$iso[which(lookup$country == country)], names(X)) ]
   }
   
   # Filter by region
-  if(region != "None"){
+  if(region != "World"){
     X <- X[substr(names(X),1,3) %in% lookup$iso[which(lookup$region == region)]]
   }
-  
-  # Filter by penalization value c
-  X <- X[grep(stringr::str_c("_c",c,".txt"), names(X))]
   
   # Filter by covariate (raw or mpi_poor)
   if (censored == TRUE){
@@ -35,9 +32,9 @@ filter_results <- function(X,
   
   # Filter by criterion
   if (conservative == TRUE){
-    X <- X[grep("_conservative_", names(X))]
+    X <- X[grep("_conserv", names(X))]
   } else {
-    X <- X[grep("_nconservative_", names(X))]
+    X <- X[grep("_nconserv", names(X))]
   }
   return(X)
 }
@@ -58,7 +55,7 @@ covariate <- c("Uncensored", "Censored")
 summary.measures <- c("Edge occurrences","Degree Distribution","Average Degree","Cliques", "Centrality")
 centrality.measures <- c("Degree","Betweenness", "Closeness","Eigenvector")
 # world region
-world.region.names <- c("None","Latin America and the Caribbean",
+world.region.names <- c("World","Latin America and the Caribbean",
                         "Sub-Saharan Africa",
                         "South Asia","Arab States","East Asia and the Pacific",
                         "Europe and Central Asia" )
@@ -105,7 +102,7 @@ ui <- fluidPage(
                  style = "overflow-y: auto; position:fixed; width:300px; top:8 bottom:0",
              selectInput("summary", "Analysis and Measures", summary.measures),
              selectInput("region", "World Region", world.region.names),
-             sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 9),
+             #sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 9),
              radioButtons("covariate", "Indicators", covariate, selected = "Uncensored"),
              conditionalPanel(
                condition = "input.summary == 'Cliques'",
@@ -127,7 +124,7 @@ ui <- fluidPage(
                wellPanel( #~~ Sidebar ~~#
                  style = "overflow-y: auto; position:fixed; width:300px; top:8 bottom:0",
                  selectInput("country", "Country", countries.names),
-                 sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 9),
+                 #sliderInput("c", "Penalization parameter", value = 0, min = 0, max = 9),
                  radioButtons("covariate", "Indicators", covariate),
                  selectInput("centrality", "Centrality Measure", centrality.measures)
                ),
