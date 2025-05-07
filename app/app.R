@@ -182,13 +182,17 @@ server <- function(input, output, session) {
       melted_data$Var2 <- factor(str_replace_all(melted_data$Var2,replacements),
                                levels = str_replace_all(indicators,replacements))
       melted_data$Var2 <- factor(melted_data$Var2, levels = rev(levels(factor(melted_data$Var2))))
+      
       ggplot(melted_data, aes(x = Var1, y = Var2, fill = value)) +
         geom_tile(color = "black") +
-        geom_text(aes(label = round(value,2)), color = "white", size = 4) +
+        geom_text(aes(label = round(value,2)), color = "white", size = 5) +
         scale_fill_gradient(limits = c(0, 1)) +
         theme(axis.text.x = element_text(size = 13),
-              axis.text.y = element_text(size = 13)) + 
-        labs(x = "", y = "", fill = "Proportion", title = "Edge occurrence (in proportions)") +
+              axis.text.y = element_text(size = 13),
+              legend.text = element_text(size = 12),
+              legend.title = element_text(vjust=5,size = 16)) + 
+        theme(legend.position = "none") + labs(x="",y="") + 
+        #labs(x = "", y = "", fill = "Frequency", title = "Edge occurrence (in proportions)") +
         coord_fixed() 
     }
     else if (input$summary == "Degree Distribution") {
