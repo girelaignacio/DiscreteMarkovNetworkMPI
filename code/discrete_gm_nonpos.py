@@ -11,14 +11,15 @@ from sklearn.metrics import roc_auc_score as AUC
 from itertools import combinations
 import multiprocessing
 from functools import partial
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, RepeatedKFold
+
 
 def int2bin(x, bits):
     return np.array([int(i) for i in bin(x)[2:].zfill(bits)])
 
 class discrete_graphical_model:
     def __init__(self,c=np.linspace(.1,1,10),ncores=None):
-        self.c = c.reshape(-1,1)# column
+        self.c = np.sort(c.reshape(-1))[::-1].reshape(-1, 1)# column in decreasing direction
         self.ncores = ncores
     def _lpl_bic(self,X,indx_v,indx_w,ne_size):
         Xnz = np.zeros_like(X)
@@ -66,12 +67,8 @@ class discrete_graphical_model:
                 bic_v.append(self._lpl_bic(YX,[q+i for i in indx_v],list(range(q))+[q+j for j in indx_w],len(indx_w))[1])
         #ne_v_optim = ne_v[max(enumerate(bic_v), key=lambda x: x[1])[0]]
         #NE[i,ne_v_optim]=True
-        try:  # Try the keepdims version
-            ne_v_optim_indx = np.argmax(np.hstack(bic_v), axis=1, keepdims=True)
-        except TypeError:  # Handle the error, print version
-            print(f"keepdims failed. Worker process NumPy version: {np.__version__} (PID: {multiprocessing.current_process().pid})")
-            ne_v_optim_indx = np.argmax(np.hstack(bic_v), axis=1) # Fallback
-        ne_v_optim = np.zeros((len(self.c),p),dtype=bool)
+        ne_v_optim_indx=np.argmax(np.hstack(bic_v),axis=1,keepdims=True)
+        ne_v_optim     = np.zeros((len(self.c),p),dtype=bool)
         for ic in range(len(self.c)):
             ne_v_optim[ic,ne_v[int(ne_v_optim_indx[ic])]]=True 
         #NElst.append(ne_v_optim)
@@ -83,9 +80,11 @@ class discrete_graphical_model:
         # c positive constant (regularization)
         
         #NElst = list()
-        
-        with multiprocessing.Pool(self.ncores) as pool:
-            NElst=pool.map(partial(self.compute_ne_i,X=X,Y=Y), range(X.shape[1]))
+        if (self.ncores>1):
+            with multiprocessing.Pool(self.ncores) as pool:
+                NElst=pool.map(partial(self.compute_ne_i,X=X,Y=Y), range(X.shape[1]))
+        else:
+           NElst = [self.compute_ne_i(i=i, X=X, Y=Y) for i in range(X.shape[1])]
         
         NE=np.stack(NElst,2)# |c|xpxp <=> c,neighbor, variable
         # simetrization
@@ -97,6 +96,47 @@ class discrete_graphical_model:
         # else:
         #     NE = NE | np.transpose(NE)
         # return(NE)
+    def _estimate_CI_subsample_i(self,i,X,Y,index_list):
+        signle_core_self = discrete_graphical_model(self.c,1)
+        cihat = signle_core_self.estimate_CI(X=X[index_list[i],:],Y=Y[index_list[i],:])                
+        cihat_combined = np.stack((cihat['conserv'], cihat['nconserv']), axis=1)
+        return cihat_combined
+    def estimate_stable_CI(self,X,Y,PFER=.1, npartitions=100, pi_min =.6, pi_max = .9, seed = None):
+        # data partition
+        rkf = RepeatedKFold(n_splits=2, n_repeats=int(npartitions/2), random_state=seed)
+        index_list = [train_index for (train_index, test_index) in rkf.split(X, Y)]
+                
+        with multiprocessing.Pool(self.ncores) as pool:
+            NElst=pool.map(partial(self._estimate_CI_subsample_i,X=X, Y=Y, index_list=index_list), range(len(index_list)))
+        
+        NE = np.stack(NElst,axis = 0)
+        qhat = np.sum(np.sum(np.cumsum(NE,axis=1)>0,axis=-1),axis=-1)/2 
+        
+        Eqhat = np.mean(qhat,axis=0)
+        
+        p = X.shape[1] * (X.shape[1] - 1)/2 # num of arrows
+        # lambdamin st q^2<pv
+        q_max = np.sqrt(p*PFER*(2*pi_max-1))
+        q_min = np.sqrt(p*PFER*(2*pi_min-1)) 
+        
+        assert q_min >= 1, f"Invalid range: q_min = {q_min} < 1. Increase PFER, or pi_min"
+        assert q_max < p, f"Invalid range: q_max = {q_max} > {p}. Decrease PFER, or pi_max"
+        
+        accepted_q = (Eqhat>q_min) & (Eqhat<q_max)
+        
+        assert np.all(np.any(accepted_q,axis=0)), f"Not encounter any c in {self.c} such that the expected number of discovery {q_min} < q < {q_max}. Extend the c grid"
+        
+        lambda_index = np.argmin(np.abs(np.cumsum(accepted_q,axis =0)/np.sum(accepted_q,axis=0)-.5) , axis=0)
+        q_c  = Eqhat[lambda_index[0],0]
+        q_nc = Eqhat[lambda_index[1],1]   
+        
+        assert (q_c>q_min) & (q_c<q_max), f"conserv did not find a c in {self.c} such that q_min={q_min} < q={q_c} < q_max={q_max}"
+        assert (q_nc>q_min) & (q_nc<q_max), f"nconserv did not find a c in {self.c} such that q_min={q_min} < q={q_nc} < q_max={q_max}"
+        
+        CI_c  = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[0],0,:,:]>(1+q_c**2/p/PFER)/2
+        CI_nc = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[1],1,:,:]>(1+q_nc**2/p/PFER)/2
+        
+        return ({'conserv' : CI_c, 'nconserv' : CI_nc})
 
 # class cross_validated_discrete_graphical_model:
 #     def __init__(self,c=np.linspace(.1,1,10),ncores=None):
@@ -355,8 +395,8 @@ class cross_validation_in_prediction:
     #     self.predObj.c = self.predObj.c[icstar,None]
     #     self.predObj.learn(self.X,self.Y)
 if __name__ == "__main__": # test
-    p=3
-    n=100
+    p=5
+    n=1000
     beta = (np.random.rand(p,1)>.5).astype(int)
     
     X     = np.random.randint(0,2,(n,p)).astype(int)>0
@@ -366,40 +406,48 @@ if __name__ == "__main__": # test
     Y     = ((X @ beta)>0).astype(int)>0
     Ytest = ((Xtest @ beta)>0).astype(int)>0
     
-    # graphical model
-    #ci=discrete_graphical_model(np.linspace(1, 10,10),10).estimate_CI(X>0, Y>0)# only binary data allowed
+    # # graphical model
+    # ci=discrete_graphical_model(np.linspace(1, 10,10),10).estimate_CI(X>0, Y>0)# only binary data allowed
     
-    # direct model, predicts Y based on its neighborhood
-    ci = direct_ci_model(c=np.linspace(.1,1,3))
-    ci.learn(X>0, Y>0)
-    Yhat=ci.predict(Xtest>0)
+    # # direct model, predicts Y based on its neighborhood
+    # ci = direct_ci_model(c=np.linspace(.1,1,3))
+    # ci.learn(X>0, Y>0)
+    # Yhat=ci.predict(Xtest>0)
     
 
-    # sdr inverse model (here the orediction is not balanced)
-    sdr=sdr_discrete_graphical_model(c=np.linspace(.1,1,3),ncores=10)
-    sdr.learn(X>0, Y>0)
-    Yhatsdr = sdr.predict(Xtest)
-    # the conditional graphical model neighborhood matrix (interactions) given Y
-    print(sdr.ne)    
+    # # sdr inverse model (here the orediction is not balanced)
+    # sdr=sdr_discrete_graphical_model(c=np.linspace(.1,1,3),ncores=10)
+    # sdr.learn(X>0, Y>0)
+    # Yhatsdr = sdr.predict(Xtest)
+    # # the conditional graphical model neighborhood matrix (interactions) given Y
+    # print(sdr.ne)    
     
-    # print predictions
-    print(np.hstack((Ytest,Yhat,Yhatsdr)))
+    # # print predictions
+    # print(np.hstack((Ytest,Yhat,Yhatsdr)))
     
     
     
-    # cross validated graphical model
-    #cvdgm = cross_validated_discrete_graphical_model(np.logspace(-20,-10,10),4)
-    #result = cvdgm.cross_validation(X, Y)
+    # # cross validated graphical model
+    # #cvdgm = cross_validated_discrete_graphical_model(np.logspace(-20,-10,10),4)
+    # #result = cvdgm.cross_validation(X, Y)
 
 
-    # cross validation in prediction
-    kfolds = 10
-    sdr=sdr_discrete_graphical_model(c=np.linspace(.1,1,10),ncores=None)
-    #cross_validation_in_prediction(sdr,X,Y,kfolds,AUC,bigger_is_better=True).learn_1fold(0)
-    cross_validation_in_prediction(sdr,X,Y,kfolds,AUC,bigger_is_better=True).learn()# update sdr object
-    print(sdr.c,sdr.ne,np.hstack((Ytest, sdr.predict(Xtest))))
+    # # cross validation in prediction
+    # kfolds = 10
+    # sdr=sdr_discrete_graphical_model(c=np.linspace(.1,1,10),ncores=None)
+    # #cross_validation_in_prediction(sdr,X,Y,kfolds,AUC,bigger_is_better=True).learn_1fold(0)
+    # cross_validation_in_prediction(sdr,X,Y,kfolds,AUC,bigger_is_better=True).learn()# update sdr object
+    # print(sdr.c,sdr.ne,np.hstack((Ytest, sdr.predict(Xtest))))
     
-    # same for direct model
-    ci=direct_ci_model(c=np.linspace(.1,1,10))
-    cross_validation_in_prediction(ci,X,Y,kfolds,AUC,bigger_is_better=True).learn()# update ci object
-    print(ci.c,ci.ne,np.hstack((Ytest, ci.predict(Xtest))))
+    # # same for direct model
+    # ci=direct_ci_model(c=np.linspace(.1,1,10))
+    # cross_validation_in_prediction(ci,X,Y,kfolds,AUC,bigger_is_better=True).learn()# update ci object
+    # print(ci.c,ci.ne,np.hstack((Ytest, ci.predict(Xtest))))
+
+
+    # stable graph
+    
+    
+    dgm = discrete_graphical_model(np.geomspace(1e3, 1e-9,1000),ncores=11)
+    #cihat = dgm.estimate_CI(X>0, Y>0)
+    CI_stable =dgm.estimate_stable_CI(X,Y,PFER=1,npartitions=100,seed=1)

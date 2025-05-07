@@ -1,32 +1,25 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
+### Import libraries ###
 
 import os
 import pandas as pd
 import numpy as np
 from discrete_gm_nonpos import discrete_graphical_model
+import time
+
+# Record the start time
+start_time = int(time.time())
+
+print(os.getcwd())
+
+### Multidimensional Poverty Measurement ###
 
 
-# In[2]:
-
-
-os.getcwd()
-
-
-# In[3]:
-
-
+# Define dimensions and indicators in dictionary
 dimensions_indicators = {
     "hl" : ["d_cm","d_nutr"],
     "ed" : ["d_satt","d_educ"],
     "ls" : ["d_elct","d_wtr","d_sani","d_hsg","d_ckfl","d_asst"]
 }
-
-
-# In[4]:
 
 
 def calculate_weights(mpi_indicators):
@@ -47,10 +40,6 @@ def calculate_weights(mpi_indicators):
             
     return dim_weights, indic_weights
 
-
-# In[5]:
-
-
 def deprivation_score(mpi_indicators,data):
     dimensions_weights, indicators_weights = calculate_weights(mpi_indicators)
     indicators_ = list(indicators_weights.keys())
@@ -62,25 +51,30 @@ def deprivation_score(mpi_indicators,data):
     
     return score
 
-
-# In[6]:
-
-
 def censored_deprivation_score(deprivation_score, k):
     censored_deprivation_score = np.where(deprivation_score >= k, deprivation_score, 0)
     
     return censored_deprivation_score
 
-
-# In[12]:
-
+### Start estimation ###
+total_number_of_cases = len(os.listdir("./processed_data/"))
+print("### Start estimating stable graphs ###")
+counter = 0
 
 for filename in os.listdir("./processed_data/"):
-    print("Working on", filename)
-    if filename not in os.listdir("./results/"):
-        
+    counter += 1
+    print("# Working on", filename, "\t"+str(counter)+"/"+str(total_number_of_cases))
+    
+    estimated = False
+    for s in os.listdir("./results_stable/"):
+        if filename in s:
+            estimated = True
+            break
+    if estimated:
+        print('Estimated. Continue with the next case.')
+    else:
         # read data
-        df = pd.read_csv(os.getcwd() + "/processed_data/"+ filename, index_col=0)
+        df = pd.read_csv("./processed_data/"+ filename, index_col=0)
         # clean data
         df = df.dropna()
         df = df.astype(int)
@@ -95,8 +89,8 @@ for filename in os.listdir("./processed_data/"):
                 'raw': raw,
                 'mpi_poor' : mpi_poor}
         # save results
-        os.mkdir("./results/"+ filename)
-        
+        #os.mkdir("./results_stable/"+ filename)
+    
         # Run models
         
         for i in ["raw","mpi_poor"]:
@@ -105,9 +99,24 @@ for filename in os.listdir("./processed_data/"):
             indx_nan=np.isnan(X).any(1)|np.isnan(Y).any(1)
             Xclean = X[~indx_nan,:]
             Yclean = Y[~indx_nan,:]
-            ci = discrete_graphical_model(np.linspace(1, 10,10), ncores = 20).estimate_CI(Xclean>0, Yclean>0)# only binary data allowed
+            
+            ncores = 40
+            ci=discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= ncores).estimate_stable_CI(
+                                        Xclean>0, Yclean>0, PFER=1., npartitions=ncores*2)
             print("Networks estimated ... proceed to save data")
-            for ic in range(len(ci['conserv'])):
-                np.savetxt("./results/"+filename+"/"+filename+"_"+i+"_"+"conservative_c"+str(ic)+".txt", ci['conserv'][ic] , fmt="%5i")
-                np.savetxt("./results/"+filename+"/"+filename+"_"+i+"_"+"nconservative_c"+str(ic)+".txt", ci['nconserv'][ic] , fmt="%5i")
+            np.savetxt("./results_stable/"+filename+"_"+i+"_conserv"+".txt", ci['conserv'], fmt="%5i")
+            np.savetxt("./results_stable/"+filename+"_"+i+"_nconserv"+".txt", ci['nconserv'], fmt="%5i")
 
+# Record the end time
+end_time = int(time.time()) 
+
+# Calculate the difference
+elapsed_time = end_time - start_time
+
+# Print the elapsed time
+d = divmod(elapsed_time,86400)  # days
+h = divmod(d[1],3600)  # hours
+m = divmod(h[1],60)  # minutes
+s = m[1]  # seconds
+
+print('The code took %d days, %d hours, %d minutes, %d seconds' % (d[0],h[0],m[0],s))
