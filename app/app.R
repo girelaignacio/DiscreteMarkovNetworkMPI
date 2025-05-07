@@ -11,7 +11,7 @@ library(qgraph)
 
 # Get the desired adjacency matrices
 filter_results <- function(X, 
-                           country = NULL, region = "None",
+                           country = NULL, region = "World",
                            censored = TRUE, conservative = TRUE){
   # Filter by country
   if(!is.null(country)){
@@ -164,7 +164,7 @@ server <- function(input, output, session) {
   
   # Filtered data
   X <- reactive({
-    filter_results(data, country = NULL, region = input$region, c = input$c,
+    filter_results(data, country = NULL, region = input$region,
                censored = covariate(), conservative = TRUE)
   })
   
@@ -306,14 +306,14 @@ server <- function(input, output, session) {
         coord_flip()
     }
   })
-  
+
   Y <- reactive({
-    filter_results(data, country = input$country, c = input$c,
+    filter_results(data, country = input$country,
                censored = covariate(), conservative = FALSE)
   })
   
   output$graph <- renderPlot({
-    ctry <- names(Y())
+    ctry <- substr(names(Y()),1,3)
     Y <- do.call("rbind", Y())
     rownames(Y) <- colnames(Y)
     Y <- Y[indicators,indicators]
