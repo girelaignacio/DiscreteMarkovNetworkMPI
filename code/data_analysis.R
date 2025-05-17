@@ -6,7 +6,7 @@ library(igraph)
 
 ## global objects
 ## Countries in results
-countries <- substr(list.files("./results"),1,3)
+countries <- unique(substr(list.files("./results_stable"),1,3))
 ## Indicators in proper order
 indicators <- c('d_nutr', 'd_cm', 
                 'd_educ', 'd_satt',
@@ -42,41 +42,20 @@ sheet_raw <- sheet_raw[,c("iso","country","region","survey","year",
                           indicators)]
 
 # Read the adjacency matrix for each country ------------------------------
-country_list <- lapply(list.files("./results"),
+results <- sapply(list.files("./results_stable"),
        function(x){
          country_iso <- substr(x, 1,3)
-         
-         file_names <- list.files(file.path("./results",x))
-         
-         adj_matrices <- lapply(file_names,
-                                function(y){
-                                  X <- read.table(file.path("./results",x,y))
-                                  indicators <- c('d_cm', 'd_nutr', 
-                                                  'd_satt', 'd_educ', 
-                                                  'd_elct', 'd_wtr', 'd_sani','d_hsg', 'd_ckfl', 'd_asst') 
-                                  rownames(X) <- colnames(X) <- indicators
-                                  
-                                  #attr(X,"country") <- country_iso
-                                  #attr(X,"file name") <- y
-                                  ##attr(X, "censored") <- if(grepl("_mpi_poor_", y)){TRUE}else{FALSE}
-                                  #attr(X, "conservative") <- if(grepl("_nconservative_", y)){FALSE}else{TRUE}
-                                  #attr(X,"c") <- as.numeric(stringr::str_extract(y, "(?<=e_c)(.*?)(?=\\.txt)"))
-                                  #attr(X, "data") <- "DMN" # Discrete Markov Network graph
-                                  return(X)
-                                })
-         #attr(adj_matrices,"country") <- country_iso
-         #attr(adj_matrices,"survey") <- gsub("[0-9]+","",sub(".*_", "", x))
-         #attr(adj_matrices,"year") <- gsub("[a-z]+","",sub(".*_", "", x))
-         names(adj_matrices) <- file_names
-         return(adj_matrices)
-       })
+         X <- read.table(file.path("./results_stable",x))
+         print(X)
+         rownames(X) <- colnames(X) <- indicators
+         return(X)
+         }, simplify = F, USE.NAMES = TRUE)
 
 lookuptable <- sheet1
 lookuptable <- merge(lookuptable, sheet_censored, by = c("iso","country","region","survey","year"))
 lookuptable <- merge(lookuptable, sheet_raw, by = c("iso","country","region","survey","year"), suffixes = c("_censored","_uncensored"))
 
-names(country_list) <- countries
-X <- unlist(country_list, recursive = F)
+names(results) <- gsub(".txt","",names(results))
 
 
 # Indicators global objects ------------------------------------------------
@@ -105,43 +84,9 @@ indicators_pallete <- c("#962b21", # d_nutr
                         "#174d68", # d_hsg
                         "#00384f") # d_asst
 
-
-# Combine data ------------------------------------------------------------
-
-for (country in names(country_list)){
-  # check if survey and years match
-  ## years
-  year <- as.character(sheet1[sheet1$iso == country,"year"])
-  if (grepl("-", year)) {
-    parts <- strsplit(year, "-")[[1]]
-    year <- paste0(substring(parts[1], 3), "-", substring(parts[2], 3))
-  } else {
-    year <- substring(year, 3)
-  }
-  stopifnot(year == attr(country_list[[country]],"year"))
-  ## surveys
-  survey <- tolower(as.character(sheet1[sheet1$iso == country,"survey"]))
-  stopifnot(grepl(survey,attr(country_list[[country]],"survey")))
-  
-  # save world region
-  attr(country_list[[country]],"region") <- as.character(sheet1[sheet1$iso == country,"region"])
-  # save country full name
-  attr(country_list[[country]],"country") <- as.character(sheet1[sheet1$iso == country,"country"])
-  # save MPI results
-  attr(country_list[[country]],"mpi") <- as.numeric(sheet1[sheet1$iso == country,"mpi"])
-  # save censored indicators
-  censored_indicators <- as.numeric(sheet_censored[sheet_censored$iso == country,indicators])
-  names(censored_indicators) <- indicators
-  attr(country_list[[country]],"censored") <- censored_indicators
-  # save uncensored (raw) indicators
-  raw_indicators <- as.numeric(sheet_raw[sheet_raw$iso == country,indicators])
-  names(raw_indicators) <- indicators
-  attr(country_list[[country]],"raw") <- raw_indicators
-}
-
 # Save data ---------------------------------------------------------------
 
-saveRDS(X,"./app/data/data.rds")
+saveRDS(results,"./app/data/data.rds")
 saveRDS(lookuptable,"./app/data/lookup.rds")
 
 data <- readRDS("./app/data/data.rds")
@@ -150,21 +95,16 @@ lookuptable <- readRDS("./app/data/lookup.rds")
 # Get the desired adjacency matrices
 filter_results <- function(X, 
                        country = NULL, region = "None",
-                       c = 0, censored = TRUE, conservative = TRUE){
+                       censored = TRUE, conservative = TRUE){
   # Filter by country
   if(!is.null(country)){
     X <- X[grep(lookuptable$iso[which(lookuptable$country == country)], names(X)) ]
-    #data <- data[sapply(data, function(x) attr(x,"country") == country)]
   }
   
   # Filter by region
   if(region != "None"){
     X <- X[substr(names(X),1,3) %in% lookuptable$iso[which(lookuptable$region == region)]]
-    #data <- data[sapply(data, function(x) attr(x,"region") == region)]
   }
-  
-  # Filter by penalization value c
-  X <- X[grep(stringr::str_c("_c",c,".txt"), names(X))]
   
   # Filter by covariate (raw or mpi_poor)
   if (censored == TRUE){
@@ -175,18 +115,16 @@ filter_results <- function(X,
   
   # Filter by criterion
   if (conservative == TRUE){
-    X <- X[grep("_conservative_", names(X))]
+    X <- X[grep("_conserv", names(X))]
   } else {
-    X <- X[grep("_nconservative_", names(X))]
+    X <- X[grep("_nconser", names(X))]
   }
-  
-  #names(X) <- NULL
   return(X)
 }
 
 
 
-Y <- filter_results(X, country = "Argentina",c= 0,conservative = FALSE, censored = TRUE)
+Y <- filter_results(results, country = "Argentina",conservative = FALSE, censored = TRUE)
 
 
 
