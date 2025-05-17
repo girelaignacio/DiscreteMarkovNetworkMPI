@@ -61,12 +61,12 @@ total_number_of_cases = len(os.listdir("./processed_data/"))
 print("### Start estimating stable graphs ###")
 counter = 0
 
-for filename in os.listdir("./processed_data/"):
+for filename in os.listdir("./processed_data/")[35:50]:
     counter += 1
     print("# Working on", filename, "\t"+str(counter)+"/"+str(total_number_of_cases))
     
     estimated = False
-    for s in os.listdir("./results_stable/"):
+    for s in os.listdir("./results_stable2/"):
         if filename in s:
             estimated = True
             break
@@ -88,25 +88,39 @@ for filename in os.listdir("./processed_data/"):
         data = {'X':df.to_numpy(),
                 'raw': raw,
                 'mpi_poor' : mpi_poor}
-        # save results
-        #os.mkdir("./results_stable/"+ filename)
     
         # Run models
-        
+        inner_counter = 0
+        inner_start_time = int(time.time())
         for i in ["raw","mpi_poor"]:
+            inner_counter = inner_counter + 1
             Y = data[i]
             X = data['X']
             indx_nan=np.isnan(X).any(1)|np.isnan(Y).any(1)
             Xclean = X[~indx_nan,:]
             Yclean = Y[~indx_nan,:]
             
-            ncores = 40
+            ncores = 10
             ci=discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= ncores).estimate_stable_CI(
-                                        Xclean>0, Yclean>0, PFER=1., npartitions=ncores*2)
-            print("Networks estimated ... proceed to save data")
-            np.savetxt("./results_stable/"+filename+"_"+i+"_conserv"+".txt", ci['conserv'], fmt="%5i")
-            np.savetxt("./results_stable/"+filename+"_"+i+"_nconserv"+".txt", ci['nconserv'], fmt="%5i")
-
+                                        Xclean>0, Yclean>0, PFER=1., pi_min = 0.6, pi_max=0.9,
+                                        npartitions = 100)
+            print("Networks estimated proceed to save data (",str(inner_counter),")")
+            np.savetxt("./results_stable2/"+filename+"_"+i+"_conserv"+".txt", 
+                       ci['conserv'], fmt="%5i")
+            np.savetxt("./results_stable2/"+filename+"_"+i+"_nconserv"+".txt", 
+                       ci['nconserv'], fmt="%5i")
+        # End of country estimation
+            # calculate time of excution
+        inner_end_time = int(time.time())
+        inner_elapsed_time = inner_end_time - inner_start_time
+        h = divmod(inner_elapsed_time,3600)  # hours
+        m = divmod(h[1],60)  # minutes
+        s = m[1]  # seconds
+        print('Code in', filename[:3] ,
+              'took %d hours, %d minutes, %d seconds' % (h[0],m[0],s))
+        
+        
+        
 # Record the end time
 end_time = int(time.time()) 
 
@@ -119,4 +133,4 @@ h = divmod(d[1],3600)  # hours
 m = divmod(h[1],60)  # minutes
 s = m[1]  # seconds
 
-print('The code took %d days, %d hours, %d minutes, %d seconds' % (d[0],h[0],m[0],s))
+print('All the code took %d days, %d hours, %d minutes, %d seconds' % (d[0],h[0],m[0],s))

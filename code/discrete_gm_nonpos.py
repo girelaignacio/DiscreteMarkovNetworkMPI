@@ -7,18 +7,19 @@ Created on Tue Jul 30 19:33:07 2024
 """
 
 import numpy as np
-from sklearn.metrics import roc_auc_score as AUC
+#from sklearn.metrics import roc_auc_score as AUC
 from itertools import combinations
-import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 from sklearn.model_selection import KFold, RepeatedKFold
 
 
 def int2bin(x, bits):
+    x = int(x)
     return np.array([int(i) for i in bin(x)[2:].zfill(bits)])
 
 class discrete_graphical_model:
-    def __init__(self,c=np.linspace(.1,1,10),ncores=None):
+    def __init__(self,c=np.geomspace(1e-9,1e1,10000),ncores=1):
         self.c = np.sort(c.reshape(-1))[::-1].reshape(-1, 1)# column in decreasing direction
         self.ncores = ncores
     def _lpl_bic(self,X,indx_v,indx_w,ne_size):
@@ -73,16 +74,18 @@ class discrete_graphical_model:
             ne_v_optim[ic,ne_v[int(ne_v_optim_indx[ic])]]=True 
         #NElst.append(ne_v_optim)
         return(ne_v_optim)
-    def estimate_CI(self,X,Y):
+    def estimate_CI(self,X,Y=None):
         # estimate the neighbourhood of every index
         # X predictors
         # Y covariates
         # c positive constant (regularization)
+        if Y is None:
+            Y = np.zeros((X.shape[0],0))
         
         #NElst = list()
         if (self.ncores>1):
-            with multiprocessing.Pool(self.ncores) as pool:
-                NElst=pool.map(partial(self.compute_ne_i,X=X,Y=Y), range(X.shape[1]))
+            with ProcessPoolExecutor(max_workers=self.ncores) as executor:
+                NElst=list(executor.map(partial(self.compute_ne_i,X=X,Y=Y), range(X.shape[1])))
         else:
            NElst = [self.compute_ne_i(i=i, X=X, Y=Y) for i in range(X.shape[1])]
         
@@ -101,13 +104,35 @@ class discrete_graphical_model:
         cihat = signle_core_self.estimate_CI(X=X[index_list[i],:],Y=Y[index_list[i],:])                
         cihat_combined = np.stack((cihat['conserv'], cihat['nconserv']), axis=1)
         return cihat_combined
-    def estimate_stable_CI(self,X,Y,PFER=.1, npartitions=100, pi_min =.6, pi_max = .9, seed = None):
+    def _evaluate_c_i(self, i, Eqhat, NE, p, PFER, q_min, q_max):
+        #lambda_index = np.argmin(np.abs(np.cumsum(accepted_q,axis =0)/np.sum(accepted_q,axis=0)-.5) , axis=0)
+        q_c  = Eqhat[i,0]
+        q_nc = Eqhat[i,1]   
+        
+        if (q_c>q_min) & (q_c<q_max):
+            CI_c  = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[i,0,:,:]>(1+q_c**2/p/PFER)/2
+            num_elements_c = np.sum(CI_c)
+        else:
+            num_elements_c = np.nan
+        if (q_nc>q_min) & (q_nc<q_max):
+            CI_nc = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[i,1,:,:]>(1+q_nc**2/p/PFER)/2
+            num_elements_nc = np.sum(CI_nc)
+        else:
+            num_elements_nc = np.nan
+            
+        return i, num_elements_c, num_elements_nc
+    
+    def estimate_stable_CI(self,X,Y=None,PFER=.1, npartitions=100, pi_min =.5, pi_max = .7, seed = None):
+        if Y is None:
+            Y = np.zeros((X.shape[0],0))
+        
         # data partition
         rkf = RepeatedKFold(n_splits=2, n_repeats=int(npartitions/2), random_state=seed)
-        index_list = [train_index for (train_index, test_index) in rkf.split(X, Y)]
-                
-        with multiprocessing.Pool(self.ncores) as pool:
-            NElst=pool.map(partial(self._estimate_CI_subsample_i,X=X, Y=Y, index_list=index_list), range(len(index_list)))
+        index_list = list([train_index for (train_index, test_index) in rkf.split(X, Y)])
+        
+        fun_i = partial(self._estimate_CI_subsample_i, X=X, Y=Y, index_list=index_list)
+        with ProcessPoolExecutor(max_workers=self.ncores) as executor:
+            NElst=list(executor.map(fun_i, range(len(index_list))))
         
         NE = np.stack(NElst,axis = 0)
         qhat = np.sum(np.sum(np.cumsum(NE,axis=1)>0,axis=-1),axis=-1)/2 
@@ -119,24 +144,43 @@ class discrete_graphical_model:
         q_max = np.sqrt(p*PFER*(2*pi_max-1))
         q_min = np.sqrt(p*PFER*(2*pi_min-1)) 
         
-        assert q_min >= 1, f"Invalid range: q_min = {q_min} < 1. Increase PFER, or pi_min"
+        assert q_min >= 0, f"Invalid range: q_min = {q_min} < 0. Increase PFER, or pi_min"
         assert q_max < p, f"Invalid range: q_max = {q_max} > {p}. Decrease PFER, or pi_max"
         
         accepted_q = (Eqhat>q_min) & (Eqhat<q_max)
+        assert np.all(np.any(accepted_q,axis=0)), f"Not encounter any c in self.c such that the expected number of discovery {q_min} < q < {q_max}. q in {Eqhat}"
         
-        assert np.all(np.any(accepted_q,axis=0)), f"Not encounter any c in {self.c} such that the expected number of discovery {q_min} < q < {q_max}. Extend the c grid"
+        # lambda_index = np.argmin(np.abs(np.cumsum(accepted_q,axis =0)/np.sum(accepted_q,axis=0)-.5) , axis=0)
+        # q_c  = Eqhat[lambda_index[0],0]
+        # q_nc = Eqhat[lambda_index[1],1]   
         
-        lambda_index = np.argmin(np.abs(np.cumsum(accepted_q,axis =0)/np.sum(accepted_q,axis=0)-.5) , axis=0)
-        q_c  = Eqhat[lambda_index[0],0]
-        q_nc = Eqhat[lambda_index[1],1]   
+        # assert (q_c>q_min) & (q_c<q_max), f"conserv did not find a c in self.c such that q_min={q_min} < q={q_c} < q_max={q_max}"
+        # assert (q_nc>q_min) & (q_nc<q_max), f"nconserv did not find a c in self.c such that q_min={q_min} < q={q_nc} < q_max={q_max}"
         
-        assert (q_c>q_min) & (q_c<q_max), f"conserv did not find a c in {self.c} such that q_min={q_min} < q={q_c} < q_max={q_max}"
-        assert (q_nc>q_min) & (q_nc<q_max), f"nconserv did not find a c in {self.c} such that q_min={q_min} < q={q_nc} < q_max={q_max}"
+        # CI_c  = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[0],0,:,:]>(1+q_c**2/p/PFER)/2
+        # CI_nc = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[1],1,:,:]>(1+q_nc**2/p/PFER)/2
         
-        CI_c  = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[0],0,:,:]>(1+q_c**2/p/PFER)/2
-        CI_nc = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[lambda_index[1],1,:,:]>(1+q_nc**2/p/PFER)/2
+        fun_i = partial(self._evaluate_c_i, Eqhat=Eqhat, NE=NE, p=p, PFER=PFER, q_min=q_min, q_max=q_max)
+        with ProcessPoolExecutor(max_workers=self.ncores) as executor:
+            discoveriesLst=list(executor.map(fun_i,list(np.where(np.any(accepted_q,axis=1))[0])))
+        discoveries = np.stack(discoveriesLst)
+        index_max_discoveries_c = discoveries[np.where(discoveries[:,1] == np.nanmax(discoveries[:,1]))[0],0]
+        index_max_discoveries_nc = discoveries[np.where(discoveries[:,2] == np.nanmax(discoveries[:,2]))[0],0]
         
-        return ({'conserv' : CI_c, 'nconserv' : CI_nc})
+        index_selected_c  = int(np.median(index_max_discoveries_c))
+        index_selected_nc = int(np.median(index_max_discoveries_nc))
+        
+        q_c  = Eqhat[index_selected_c,0]
+        q_nc = Eqhat[index_selected_nc,1]   
+        CI_c  = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[index_selected_c,0,:,:]>(1+q_c**2/p/PFER)/2
+        CI_nc = np.mean(np.cumsum(NE,axis=1)>0,axis=0)[index_selected_nc,1,:,:]>(1+q_nc**2/p/PFER)/2
+        
+        return  ({'conserv' : CI_c, 'nconserv' : CI_nc})
+    def estimate_stable_CI_multiple_datasets(self,X_Y_list, ncores_outer= 1, PFER=.1, npartitions=100, pi_min =.5, pi_max = .7, seed = None):
+        # assumes X_Y_list = [(X1, Y1), (X2, Y2), ... ]  
+        func = partial(self.estimate_stable_CI, PFER=PFER, npartitions=npartitions, pi_min=pi_min, pi_max=pi_max, seed=seed)
+        with ThreadPoolExecutor(max_workers=self.ncores) as executor:
+            return list(executor.map(lambda data: func(*data), X_Y_list))
 
 # class cross_validated_discrete_graphical_model:
 #     def __init__(self,c=np.linspace(.1,1,10),ncores=None):
@@ -450,4 +494,8 @@ if __name__ == "__main__": # test
     
     dgm = discrete_graphical_model(np.geomspace(1e3, 1e-9,1000),ncores=11)
     #cihat = dgm.estimate_CI(X>0, Y>0)
-    CI_stable =dgm.estimate_stable_CI(X,Y,PFER=1,npartitions=100,seed=1)
+    CI_stable =dgm.estimate_stable_CI(X,Y=Y,PFER=1,npartitions=100,seed=1)
+    
+    
+    # parallelize multiple trainigs:
+   
