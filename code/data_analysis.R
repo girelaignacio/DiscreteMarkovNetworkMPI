@@ -89,8 +89,8 @@ indicators_pallete <- c("#962b21", # d_nutr
 saveRDS(results,"./app/data/data.rds")
 saveRDS(lookuptable,"./app/data/lookup.rds")
 
-
-
+data <- readRDS("./app/data/data.rds")
+lookuptable <- readRDS("./app/data/lookup.rds")
 
 # Get the desired adjacency matrices
 filter_results <- function(X, 
@@ -186,7 +186,7 @@ rownames(degrees) <- stringr::str_replace_all(rownames(degrees), replacements)
 
 zero_degree <- which(apply(degrees,MARGIN = 2, sum) == 0)
 
-degrees <- degrees[,-zero_degree]
+#degrees <- degrees[,-zero_degree]
 
 #### INDICATORS DISTRIBUTION
 ggplot(reshape2::melt(degrees), aes(x = Var2, y = value, fill = Var1)) + 
@@ -199,18 +199,84 @@ ggplot(reshape2::melt(degrees), aes(x = Var2, y = value, fill = Var1)) +
 
 
 #### AVERAGE DEGREE BY INDICATOR
-prop_degrees <- apply(degrees, MARGIN = 1, mean)
-degrees_df <- data.frame(variable = factor(names(prop_degrees),
-                                           levels = replacements),
-                            value = as.numeric(prop_degrees))
+
+degrees_df <- NULL
+for (region in world.region.names){
+  X <- filter_results(data,region = region, c= 0,conservative = TRUE, censored = TRUE)
+  degrees <- sapply(X, function(x){
+    g <- graph_from_adjacency_matrix(as.matrix(x), mode = "undirected")
+    degree(g)
+  }
+  )
+  degrees <- degrees[indicators,]
+  rownames(degrees) <- stringr::str_replace_all(rownames(degrees), replacements)
+
+  prop_degrees <- apply(degrees, MARGIN = 1, mean)
+  
+  if(is.null(degrees_df)){
+    degrees_df <- data.frame(variable = factor(names(prop_degrees),
+                                               levels = replacements),
+                             value = as.numeric(prop_degrees))
+    colnames(degrees_df)[2] <- "World"
+  } else {
+    degrees_df <- merge(degrees_df, data.frame(variable = factor(names(prop_degrees),
+                                                                 levels = replacements),
+                                               value = as.numeric(prop_degrees)),
+                        by = "variable")
+    colnames(degrees_df)[which(colnames(degrees_df) == "value")] <- region
+  }
+}
+
+degrees_df <- degrees_df[order(degrees_df$variable, replacements),]
 
 # Create the bar plot
-ggplot(degrees_df, aes(x = factor(variable), y = value)) +
+ggplot(degrees_df, aes(x = factor(variable), y = World)) +
   geom_bar(stat = "identity", fill = indicators_pallete) +
-  geom_text(aes(label = round(value,2),vjust = 2)) +
+  #geom_text(aes(label = round(World,2),vjust = 2)) +
   labs(title = "Average Degree by Indicator",
        x = "Indicators",
-       y = "Average degree")
+       y = "Average degree") + 
+  geom_point(aes(x = factor(variable), y = `Latin America and the Caribbean`), shape = 2, size = 4, stroke = 1) + 
+  geom_point(aes(x = factor(variable), y = `Sub-Saharan Africa`), shape = 3, size = 4, stroke = 1) + 
+  geom_point(aes(x = factor(variable), y = `Arab States`),shape = 4 , size = 4, stroke = 1) + 
+  geom_point(aes(x = factor(variable), y = `East Asia and the Pacific`), shape = 5, size = 4, stroke = 1) + 
+  geom_point(aes(x = factor(variable), y = `South Asia`), shape = 6, size = 4, stroke = 1) +
+  geom_point(aes(x = factor(variable), y = `Europe and Central Asia`), shape = 1, size = 4, stroke = 1) +
+  scale_shape_manual(name = "Region", # Set the title of the legend
+                     values = c("Latin America and the Caribbean" = 2,
+                                "Sub-Saharan Africa" = 3,
+                                "Arab States" = 4,
+                                "East Asia and the Pacific" = 5,
+                                "South Asia" = 6,
+                                "Europe and Central Asia" = 1))
+
+
+plot.data <- reshape::melt(degrees_df)
+colnames(plot.data) <- c("indicator","region","value")
+ggplot(plot.data, aes(x = factor(indicator))) +
+  geom_bar(data = subset(plot.data, region == "World"),
+           aes(y = value),
+           stat = "identity",
+           fill = indicators_pallete) +
+  geom_point(data = subset(plot.data, region != "World"),
+             aes(y = value, shape = factor(region)),
+             size = 4, stroke = 1) +
+  theme(legend.position = "bottom")
+
+  +
+  labs(title = "Average Degree by Indicator",
+       x = "Indicators",
+       y = "Average degree",
+       color = "Region",
+       shape = "Region") +
+  scale_shape_manual(name = "Region",
+                     values = c("Latin America and the Caribbean" = 2,
+                                "Sub-Saharan Africa" = 3,
+                                "Arab States" = 4,
+                                "East Asia and the Pacific" = 5,
+                                "South Asia" = 6,
+                                "Europe and Central Asia" = 1)) +
+  scale_color_discrete(name = "Region")
 
 # Cliques -----------------------------------------------------------------
 
