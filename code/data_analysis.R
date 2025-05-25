@@ -46,7 +46,6 @@ results <- sapply(list.files("./results_stable"),
        function(x){
          country_iso <- substr(x, 1,3)
          X <- read.table(file.path("./results_stable",x))
-         print(X)
          rownames(X) <- colnames(X) <- indicators
          return(X)
          }, simplify = F, USE.NAMES = TRUE)
@@ -124,7 +123,7 @@ filter_results <- function(X,
 
 
 
-Y <- filter_results(results, country = "Argentina",conservative = FALSE, censored = TRUE)
+Y <- filter_results(data,conservative = FALSE, censored = TRUE)
 
 
 
@@ -154,7 +153,7 @@ Y <- filter_results(results, country = "Argentina",conservative = FALSE, censore
 
 
 
-y <- as.matrix(Reduce("+", X)/length(X))
+y <- as.matrix(Reduce("+", Y)/length(Y))
 y <- y[indicators, indicators]
 
 library(ggplot2)
