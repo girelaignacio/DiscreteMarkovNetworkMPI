@@ -6,7 +6,7 @@ import pandas as pd
 from discrete_gm_nonpos import discrete_graphical_model
 
 ncores = 40
-for n_sim in range(2,6):
+for n_sim in [1,5]:
     print("Estimating SIMULATION NUMBER ",str(n_sim))
 
     data = np.genfromtxt("./code/simulations/sim"+str(n_sim)+"_data.txt", delimiter=' ')
@@ -27,7 +27,7 @@ for n_sim in range(2,6):
 
     print("estimating stable...")
     ci_stable = discrete_graphical_model(np.geomspace(.1, 10,10000),ncores= ncores).estimate_stable_CI(
-                                data, PFER=1., pi_min = 0.6, pi_max=0.9, npartitions = 50)
+                                data, PFER=1., pi_min = 0.5, pi_max=0.9, npartitions = 50)
     np.savetxt("./code/simulations/sim"+str(n_sim)+"_stable_conserv.txt", 
                        ci_stable['conserv'], fmt="%5i")
     np.savetxt("./code/simulations/sim"+str(n_sim)+"_stable_nconserv.txt", 
