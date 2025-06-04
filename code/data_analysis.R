@@ -6,7 +6,7 @@ library(igraph)
 
 ## global objects
 ## Countries in results
-countries <- unique(substr(list.files("./results_stable"),1,3))
+countries <- unique(substr(list.files("./results_stable2"),1,3))
 ## Indicators in proper order
 indicators <- c('d_nutr', 'd_cm', 
                 'd_educ', 'd_satt',
@@ -42,11 +42,13 @@ sheet_raw <- sheet_raw[,c("iso","country","region","survey","year",
                           indicators)]
 
 # Read the adjacency matrix for each country ------------------------------
-results <- sapply(list.files("./results_stable"),
+results <- sapply(list.files("./results_stable2"),
        function(x){
          country_iso <- substr(x, 1,3)
-         X <- read.table(file.path("./results_stable",x))
-         rownames(X) <- colnames(X) <- indicators
+         X <- read.table(file.path("./results_stable2",x))
+         rownames(X) <- colnames(X) <- c('d_cm','d_nutr', 'd_satt','d_educ',
+                                          'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst')
+         X <- X[indicators,indicators]
          return(X)
          }, simplify = F, USE.NAMES = TRUE)
 
