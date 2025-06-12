@@ -58,15 +58,16 @@ def censored_deprivation_score(deprivation_score, k):
 
 ### Start estimation ###
 total_number_of_cases = len(os.listdir("./processed_data/"))
+os.makedirs("./results_stable3/", exist_ok=True)
 print("### Start estimating stable graphs ###")
 counter = 0
 
-for filename in os.listdir("./processed_data/")[35:50]:
+for filename in os.listdir("./processed_data/"):
     counter += 1
     print("# Working on", filename, "\t"+str(counter)+"/"+str(total_number_of_cases))
     
     estimated = False
-    for s in os.listdir("./results_stable2/"):
+    for s in os.listdir("./results_stable3/"):
         if filename in s:
             estimated = True
             break
@@ -102,12 +103,12 @@ for filename in os.listdir("./processed_data/")[35:50]:
             
             ncores = 10
             ci=discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= ncores).estimate_stable_CI(
-                                        Xclean>0, Yclean>0, PFER=1., pi_min = 0.6, pi_max=0.9,
+                                        Xclean>0, Yclean>0, PFER=2., pi_min = 0.6, pi_max=0.9,
                                         npartitions = 100)
             print("Networks estimated proceed to save data (",str(inner_counter),")")
-            np.savetxt("./results_stable2/"+filename+"_"+i+"_conserv"+".txt", 
+            np.savetxt("./results_stable3/"+filename+"_"+i+"_conserv"+".txt", 
                        ci['conserv'], fmt="%5i")
-            np.savetxt("./results_stable2/"+filename+"_"+i+"_nconserv"+".txt", 
+            np.savetxt("./results_stable3/"+filename+"_"+i+"_nconserv"+".txt", 
                        ci['nconserv'], fmt="%5i")
         # End of country estimation
             # calculate time of excution
