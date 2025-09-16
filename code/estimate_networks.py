@@ -58,7 +58,7 @@ def censored_deprivation_score(deprivation_score, k):
 
 ### Start estimation ###
 total_number_of_cases = len(os.listdir("./processed_data/"))
-os.makedirs("./results_stable3/", exist_ok=True)
+#os.makedirs("./results_stable2/", exist_ok=True)
 print("### Start estimating stable graphs ###")
 counter = 0
 
@@ -67,10 +67,9 @@ for filename in os.listdir("./processed_data/"):
     print("# Working on", filename, "\t"+str(counter)+"/"+str(total_number_of_cases))
     
     estimated = False
-    for s in os.listdir("./results_stable3/"):
+    for s in os.listdir("./results_stable2/"):
         if filename in s:
             estimated = True
-            break
     if estimated:
         print('Estimated. Continue with the next case.')
     else:
@@ -101,15 +100,15 @@ for filename in os.listdir("./processed_data/"):
             Xclean = X[~indx_nan,:]
             Yclean = Y[~indx_nan,:]
             
-            ncores = 10
-            ci=discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= ncores).estimate_stable_CI(
-                                        Xclean>0, Yclean>0, PFER=2., pi_min = 0.6, pi_max=0.9,
+            ncores = 35
+            ci=discrete_graphical_model(np.geomspace(.1, 100,300000),ncores= ncores).estimate_stable_CI(
+                                        Xclean>0, Yclean>0, PFER=1., pi_min = 0.6, pi_max=0.9,
                                         npartitions = 100)
             print("Networks estimated proceed to save data (",str(inner_counter),")")
-            np.savetxt("./results_stable3/"+filename+"_"+i+"_conserv"+".txt", 
-                       ci['conserv'], fmt="%5i")
-            np.savetxt("./results_stable3/"+filename+"_"+i+"_nconserv"+".txt", 
-                       ci['nconserv'], fmt="%5i")
+            np.savetxt("./results_stable2/"+filename+"_"+i+"_conserv"+".txt", 
+                    ci['conserv'], fmt="%5i")
+            np.savetxt("./results_stable2/"+filename+"_"+i+"_nconserv"+".txt", 
+                    ci['nconserv'], fmt="%5i")
         # End of country estimation
             # calculate time of excution
         inner_end_time = int(time.time())
@@ -118,7 +117,7 @@ for filename in os.listdir("./processed_data/"):
         m = divmod(h[1],60)  # minutes
         s = m[1]  # seconds
         print('Code in', filename[:3] ,
-              'took %d hours, %d minutes, %d seconds' % (h[0],m[0],s))
+            'took %d hours, %d minutes, %d seconds' % (h[0],m[0],s))
         
         
         

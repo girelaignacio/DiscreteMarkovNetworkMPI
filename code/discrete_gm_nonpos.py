@@ -295,7 +295,7 @@ class sdr_discrete_graphical_model:
         index_y0 = (Y_train == 0)
 
         for i in range(p):
-            ne_i = self.ne[i]
+            ne_i = self.ne[i] > 0
             ne_i_with_self = ne_i.copy()
             ne_i_with_self[i] = True
 
@@ -346,7 +346,7 @@ class sdr_discrete_graphical_model:
         pl_y0 = np.ones(n_samples)
 
         for i in range(p):
-            ne_i = self.ne[i]
+            ne_i = self.ne[i] > 0
             ne_i_with_self = ne_i.copy()
             ne_i_with_self[i] = True
 
