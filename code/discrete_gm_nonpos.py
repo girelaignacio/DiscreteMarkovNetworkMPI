@@ -478,6 +478,137 @@ class sdr_discrete_graphical_model:
         else:
             raise ValueError(f"Unknown method: {method}")
         
+    def _connected_components_indices(self):
+        """Return list of connected components (each as a 1D np.array of indices)
+        for a dense, binary, symmetric adjacency self.ne.
+        """
+        ne = (np.asarray(self.ne) != 0)
+        p = ne.shape[0]
+        visited = np.zeros(p, dtype=bool)
+        comps = []
+        for i in range(p):
+            if not visited[i]:
+                stack = [i]
+                visited[i] = True
+                comp = []
+                while stack:
+                    u = stack.pop()
+                    comp.append(u)
+                    # neighbors of u (no self-edge assumed)
+                    for v in np.flatnonzero(ne[u]):
+                        if not visited[v]:
+                            visited[v] = True
+                            stack.append(v)
+                comps.append(np.array(comp, dtype=int))
+        return comps
+
+    def _aggregate_Ri_by_components(self, Ri, components):
+        """Sum per-variable Ri within each connected component."""
+        if len(components) == 0:
+            return np.zeros((Ri.shape[0], 0))
+        # Each column j is the sum over variables in component j
+        return np.stack([Ri[:, idx].sum(axis=1) for idx in components], axis=1)
+
+    def evaluate_importance_connected_component(self, method="insample", kfolds=5, random_state=None, include_null=True):
+        """
+        Same metrics as `evaluate_importance`, but computed per connected component.
+        We aggregate Ri over each component, then call `compute_metrics` so that
+        AUC and the two error estimates are reported in the same style.
+
+        Returns
+        -------
+        dict
+            {"full": metrics_dict, "null": metrics_dict} if include_null,
+            otherwise {"full": metrics_dict}.
+            Per-component arrays (e.g., 'auc', 'error_rate_cut0', 'error_rate_opt',
+            'importance_unsigned') now have length = number of connected components.
+        """
+        components = self._connected_components_indices()
+        component_labels = np.full(self.p, -1, dtype=int)
+        for cid, idx in enumerate(components):
+            component_labels[idx] = cid
+        if method == "insample":
+            # Full model: reuse the current object
+            Ri, R = self.predict(self.X)
+            R_diff = self.predict_difference(self.X)
+            Ri_cc = self._aggregate_Ri_by_components(Ri, components)
+            full = self.compute_metrics(Ri_cc, R, self.Y[:, 0], R_diff=R_diff)
+
+            if not include_null:
+                return {
+                    "full": full,
+                    "components": components,               # list of arrays with node indices
+                    "component_labels": component_labels,   # length p: node -> component id
+                }
+
+            # Null / independence model
+            ne_null = np.zeros_like(self.ne)
+            model_null = sdr_discrete_graphical_model(self.X, self.Y, ne_null)
+            Ri_n, R_n = model_null.predict(self.X)
+            R_diff_n = model_null.predict_difference(self.X)
+            Ri_cc_n = self._aggregate_Ri_by_components(Ri_n, components)
+            null = self.compute_metrics(Ri_cc_n, R_n, self.Y[:, 0], R_diff=R_diff_n)
+
+            return {
+                    "full": full,
+                    "null": null,
+                    "components": components,               # list of arrays with node indices
+                    "component_labels": component_labels,   # length p: node -> component id
+            }
+
+        elif method == "kfold":
+            X, Y, ne = self.X, self.Y, self.ne
+            kf = KFold(n_splits=kfolds, shuffle=True, random_state=random_state)
+
+            full_list = []
+            null_list = [] if include_null else None
+
+            for train_idx, test_idx in kf.split(X):
+                # Full model
+                model = sdr_discrete_graphical_model(X[train_idx], Y[train_idx], ne)
+                Ri_t, R_t = model.predict(X[test_idx])
+                R_diff_t = model.predict_difference(X[test_idx])
+                Ri_cc_t = self._aggregate_Ri_by_components(Ri_t, components)
+                full_list.append(self.compute_metrics(Ri_cc_t, R_t, Y[test_idx, 0], R_diff=R_diff_t))
+
+                # Null / independence model
+                if include_null:
+                    model_n = sdr_discrete_graphical_model(X[train_idx], Y[train_idx], np.zeros_like(ne))
+                    Ri_nt, R_nt = model_n.predict(X[test_idx])
+                    R_diff_nt = model_n.predict_difference(X[test_idx])
+                    Ri_cc_nt = self._aggregate_Ri_by_components(Ri_nt, components)
+                    null_list.append(self.compute_metrics(Ri_cc_nt, R_nt, Y[test_idx, 0], R_diff=R_diff_nt))
+
+            # Average across folds (same style as evaluate_importance)
+            def _avg(metrics_list):
+                agg = {}
+                for key in metrics_list[0].keys():
+                    vals = [m[key] for m in metrics_list]
+                    if isinstance(vals[0], np.ndarray):
+                        agg[key] = np.nanmean(np.vstack(vals), axis=0)
+                    else:
+                        agg[key] = np.nanmean(vals)
+                return agg
+
+            full = _avg(full_list)
+            if include_null:
+                null = _avg(null_list)
+                return {
+                    "full": full,
+                    "null": null,
+                    "components": components,               # list of arrays with node indices
+                    "component_labels": component_labels,   # length p: node -> component id
+                }
+            else:
+                return {
+                    "full": full,
+                    "components": components,               # list of arrays with node indices
+                    "component_labels": component_labels,   # length p: node -> component id
+                }
+
+        else:
+            raise ValueError(f"Unknown method: {method}")
+        
         
         
         
@@ -608,14 +739,14 @@ if __name__ == "__main__": # test
     np.random.seed(111)
     # generate data
     p=6
-    n=1000
+    n=100
     beta = (np.random.rand(p,1)>.5).astype(int)
     print(beta.T)
 
     # Generate X and Xtest using multivariate normal, then threshold to binary
-    rho = 0.5# reforcement correlation
-    gamma = -.3 # noisy coorrelation
-    cov = np.eye(p) + rho* beta @ beta.T + gamma * (np.ones((p,p))-np.eye(p))
+    rho = 0.3# reforcement correlation
+    gamma = -0. # noisy coorrelation
+    cov = 1*np.eye(p) + rho* beta @ beta.T + gamma * (np.ones((p,p))-np.eye(p))
     mean = np.zeros(p)
     X_real = np.random.multivariate_normal(mean, cov, size=n)
     Xtest_real = np.random.multivariate_normal(mean, cov, size=n)
@@ -689,3 +820,21 @@ if __name__ == "__main__": # test
     for k, v in importance_results.items():
         print(k, v)
    
+    # connected components
+    # In-sample (both full and null)
+    cc_metrics = sdr.evaluate_importance_connected_component(method="insample", include_null=True)
+    print(cc_metrics["full"]["auc"])   # per-component AUC
+    print(cc_metrics["null"]["auc"])
+    print(1-cc_metrics["full"]["error_rate_opt"])  
+    print(1-cc_metrics["null"]["error_rate_opt"])
+    print(cc_metrics["components"])  # sizes of each connected component
+    print(cc_metrics["component_labels"])  # mapping of variable index to component ID
+    # Or k-fold:
+    cc_metrics_kf = sdr.evaluate_importance_connected_component(method="kfold", kfolds=5, random_state=42)
+    print(cc_metrics_kf["full"]["auc"])   # per-component AUC
+    print(cc_metrics_kf["null"]["auc"])
+    print(1-cc_metrics_kf["full"]["error_rate_opt"])  
+    print(1-cc_metrics_kf["null"]["error_rate_opt"])
+    print(cc_metrics_kf["components"])  # sizes of each connected component
+    print(cc_metrics_kf["component_labels"])  # mapping of variable index to component ID
+    print(cc_metrics_kf)
