@@ -11,7 +11,7 @@ import numpy as np
 from itertools import combinations
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
-from sklearn.model_selection import KFold, RepeatedKFold
+from sklearn.model_selection import KFold, StratifiedKFold, RepeatedKFold
 import numpy as np
 from sklearn.metrics import roc_auc_score, accuracy_score
 
@@ -454,10 +454,11 @@ class sdr_discrete_graphical_model:
 
         elif method == "kfold":
             X, Y, ne = self.X, self.Y, self.ne
-            kf = KFold(n_splits=kfolds, shuffle=True, random_state=random_state)
+            #kf = KFold(n_splits=kfolds, shuffle=True, random_state=random_state)
+            kf = StratifiedKFold(n_splits=kfolds, shuffle=True, random_state=random_state)
 
             metrics_list = []
-            for train_idx, test_idx in kf.split(X):
+            for train_idx, test_idx in kf.split(X,Y[:,0]):
                 model = sdr_discrete_graphical_model(X[train_idx], Y[train_idx], ne)
                 Ri_test, R_test = model.predict(X[test_idx])
                 R_diff = model.predict_difference(X[test_idx])
@@ -558,12 +559,13 @@ class sdr_discrete_graphical_model:
 
         elif method == "kfold":
             X, Y, ne = self.X, self.Y, self.ne
-            kf = KFold(n_splits=kfolds, shuffle=True, random_state=random_state)
+            #kf = KFold(n_splits=kfolds, shuffle=True, random_state=random_state)
+            kf = StratifiedKFold(n_splits=kfolds, shuffle=True, random_state=random_state)
 
             full_list = []
             null_list = [] if include_null else None
 
-            for train_idx, test_idx in kf.split(X):
+            for train_idx, test_idx in kf.split(X, Y[:,0]):
                 # Full model
                 model = sdr_discrete_graphical_model(X[train_idx], Y[train_idx], ne)
                 Ri_t, R_t = model.predict(X[test_idx])
