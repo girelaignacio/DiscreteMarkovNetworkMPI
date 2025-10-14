@@ -60,46 +60,43 @@ def censored_deprivation_score(deprivation_score, k):
 data_list = []
 params = []
 
-for filename in os.listdir("./processed_data/"):
-    # read data
-    df = pd.read_csv("./processed_data/"+ filename, index_col=0)
-    # clean data
-    df = df.dropna()
-    df = df.astype(int)
-    # calculate censored deprivation scores
-    c_k = censored_deprivation_score(deprivation_score(dimensions_indicators, df), 33/100)
+#for filename in "bfa_dhs21.csv":
+filename = "bfa_dhs21"
+# read data
+df = pd.read_csv("./processed_data/" + filename, index_col=0)
+# clean data
+df = df.dropna()
+df = df.astype(int)
+# calculate censored deprivation scores
+c_k = censored_deprivation_score(deprivation_score(dimensions_indicators, df), 33/100)
 
-    # Prepare data
-    raw = np.zeros(df.shape[0]).reshape(-1,1)
-    mpi_poor =  np.where(c_k > 0, 1, 0).reshape(-1,1)
+# Prepare data
+raw = np.zeros(df.shape[0]).reshape(-1,1)
+mpi_poor =  np.where(c_k > 0, 1, 0).reshape(-1,1)
 
-    data = {'X':df.to_numpy(),
-            'raw': raw,
-            'mpi_poor' : mpi_poor}
+data = {'X':df.to_numpy(),
+        'raw': raw,
+        'mpi_poor' : mpi_poor}
+
+# Run models
     
-    # Run models
-        
-    for covar in ["raw","mpi_poor"]:
-        Y = data[covar]
-        X = data['X']
-        indx_nan=np.isnan(X).any(1)|np.isnan(Y).any(1)
-        Xclean = X[~indx_nan,:]
-        Yclean = Y[~indx_nan,:]
-            
-        data_list.append((X,Y))
-        params.append((filename,covar))
+for covar in ["raw","mpi_poor"]:
+    Y = data[covar]
+    X = data['X']
+    indx_nan=np.isnan(X).any(1)|np.isnan(Y).any(1)
+    Xclean = X[~indx_nan,:]
+    Yclean = Y[~indx_nan,:]
 
 print("### Start estimating stable graphs ###")
-ci_list = discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= 10).estimate_stable_CI_multiple_datasets(
-                            data_list, PFER=1., pi_min = 0.6, pi_max=0.9, ncores_outer = 2, npartitions = 100)
+ci = discrete_graphical_model(np.geomspace(.1, 100,10000),ncores= 10).estimate_stable_CI(
+                                        Xclean>0, Yclean>0, PFER=1.0, pi_min = 0.8, pi_max=0.99,
+                                        npartitions = 100)
 print("### Finish estimating stable graphs ###")
             
-for i in range(len(params)):
-    ci = ci_list[i]
-    filename, covar = params[i]
-    np.savetxt("./results_stable2/"+filename+"_"+covar+"_conserv"+".txt", ci['conserv'], fmt="%5i")
-    np.savetxt("./results_stable2/"+filename+"_"+covar+"_nconserv"+".txt", ci['nconserv'], fmt="%5i")
-    
+np.savetxt("./"+filename+"_conserv2"+".txt", 
+            ci['conserv'], fmt="%5i")
+np.savetxt("./"+filename+"_nconserv2"+".txt", 
+            ci['nconserv'], fmt="%5i")
 
 # Record the end time
 end_time = int(time.time()) 

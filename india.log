@@ -1,0 +1,111 @@
+/home/igirela/DiscreteMarkovNetworkMPI
+### Start estimating stable graphs ###
+# Working on caf_mics18-19 	1/63
+Estimated. Continue with the next case.
+# Working on npl_dhs22 	2/63
+Estimated. Continue with the next case.
+# Working on tgo_mics17 	3/63
+Estimated. Continue with the next case.
+# Working on sur_mics18 	4/63
+Estimated. Continue with the next case.
+# Working on tha_mics22 	5/63
+Estimated. Continue with the next case.
+# Working on zaf_dhs16 	6/63
+Estimated. Continue with the next case.
+# Working on com_mics22 	7/63
+Estimated. Continue with the next case.
+# Working on srb_mics19 	8/63
+Estimated. Continue with the next case.
+# Working on pry_mics16 	9/63
+Estimated. Continue with the next case.
+# Working on bgd_mics19 	10/63
+Estimated. Continue with the next case.
+# Working on pak_dhs17-18 	11/63
+Estimated. Continue with the next case.
+# Working on mli_dhs18 	12/63
+Estimated. Continue with the next case.
+# Working on dza_mics18-19 	13/63
+Estimated. Continue with the next case.
+# Working on sle_dhs19 	14/63
+Estimated. Continue with the next case.
+# Working on tun_mics23 	15/63
+Estimated. Continue with the next case.
+# Working on cub_mics19 	16/63
+Estimated. Continue with the next case.
+# Working on gnb_mics18-19 	17/63
+Estimated. Continue with the next case.
+# Working on mwi_mics19-20 	18/63
+Estimated. Continue with the next case.
+# Working on wsm_mics19-20 	19/63
+Estimated. Continue with the next case.
+# Working on gin_dhs18 	20/63
+Estimated. Continue with the next case.
+# Working on mkd_mics18-19 	21/63
+Estimated. Continue with the next case.
+# Working on pse_mics19-20 	22/63
+Estimated. Continue with the next case.
+# Working on hnd_mics19 	23/63
+Estimated. Continue with the next case.
+# Working on zmb_dhs18 	24/63
+Estimated. Continue with the next case.
+# Working on guy_mics19-20 	25/63
+Estimated. Continue with the next case.
+# Working on cod_mics17-18 	26/63
+Estimated. Continue with the next case.
+# Working on mng_mics18 	27/63
+Estimated. Continue with the next case.
+# Working on mdv_dhs16-17 	28/63
+Estimated. Continue with the next case.
+# Working on tcd_mics19 	29/63
+Estimated. Continue with the next case.
+# Working on bfa_dhs21 	30/63
+Estimated. Continue with the next case.
+# Working on mda_mics12 	31/63
+Estimated. Continue with the next case.
+# Working on eth_dhs19 	32/63
+Estimated. Continue with the next case.
+# Working on zwe_mics19 	33/63
+Estimated. Continue with the next case.
+# Working on slv_mics14 	34/63
+Estimated. Continue with the next case.
+# Working on ner_dhs12 	35/63
+Estimated. Continue with the next case.
+# Working on lao_mics17 	36/63
+Estimated. Continue with the next case.
+# Working on cog_mics14-15 	37/63
+Estimated. Continue with the next case.
+# Working on ton_mics19 	38/63
+Estimated. Continue with the next case.
+# Working on civ_dhs21 	39/63
+Estimated. Continue with the next case.
+# Working on sdn_mics14 	40/63
+Estimated. Continue with the next case.
+# Working on dom_mics19 	41/63
+Estimated. Continue with the next case.
+# Working on gab_dhs19-21 	42/63
+Estimated. Continue with the next case.
+# Working on kaz_mics15 	43/63
+Estimated. Continue with the next case.
+# Working on tza_dhs22 	44/63
+Estimated. Continue with the next case.
+# Working on cmr_dhs18 	45/63
+Estimated. Continue with the next case.
+# Working on mrt_dhs19-21 	46/63
+Estimated. Continue with the next case.
+# Working on tuv_mics19-20 	47/63
+Estimated. Continue with the next case.
+# Working on ind_dhs19-21 	48/63
+Traceback (most recent call last):
+  File "/home/igirela/DiscreteMarkovNetworkMPI/./code/estimate_networks.py", line 104, in <module>
+    ci=discrete_graphical_model(np.geomspace(.1, 100,300000),ncores= ncores).estimate_stable_CI(
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/igirela/DiscreteMarkovNetworkMPI/code/discrete_gm_nonpos.py", line 151, in estimate_stable_CI
+    assert np.all(np.any(accepted_q,axis=0)), f"Not encounter any c in self.c such that the expected number of discovery {q_min} < q < {q_max}. q in {Eqhat}"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Not encounter any c in self.c such that the expected number of discovery 2.9999999999999996 < q < 6.0. q in [[ 4.    9.23]
+ [ 4.    9.23]
+ [ 4.    9.23]
+ ...
+ [32.17 38.89]
+ [32.17 38.89]
+ [32.17 38.89]]

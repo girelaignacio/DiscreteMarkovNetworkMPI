@@ -43,14 +43,14 @@ sheet_raw <- sheet_raw[,c("iso","country","region","survey","year",
 
 # Read the adjacency matrix for each country ------------------------------
 results <- sapply(list.files("./results_stable2"),
-       function(x){
-         country_iso <- substr(x, 1,3)
-         X <- read.table(file.path("./results_stable2",x))
-         rownames(X) <- colnames(X) <- c('d_cm','d_nutr', 'd_satt','d_educ',
+      function(x){
+        country_iso <- substr(x, 1,3)
+        X <- read.table(file.path("./results_stable2",x))
+        rownames(X) <- colnames(X) <- c('d_cm','d_nutr', 'd_satt','d_educ',
                                           'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst')
-         X <- X[indicators,indicators]
-         return(X)
-         }, simplify = F, USE.NAMES = TRUE)
+        X <- X[indicators,indicators]
+        return(X)
+        }, simplify = F, USE.NAMES = TRUE)
 
 lookuptable <- sheet1
 lookuptable <- merge(lookuptable, sheet_censored, by = c("iso","country","region","survey","year"))
