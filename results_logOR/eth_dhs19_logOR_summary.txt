@@ -1,0 +1,24 @@
+=== logOR for eth_dhs19 ===
+Graph: results_stable2/eth_dhs19_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -0.7059
+  d_elct    --  d_wtr    :  logOR = +1.2102
+  d_elct    --  d_hsg    :  logOR = +2.6497
+  d_elct    --  d_asst   :  logOR = +1.7991
+  d_wtr     --  d_asst   :  logOR = +0.4466
+  d_sani    --  d_hsg    :  logOR = +1.6270
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.2390
+  d_nutr   :  logOR_Y = +3.3997
+  d_satt   :  logOR_Y = +3.2262
+  d_educ   :  logOR_Y = +4.4253
+  d_elct   :  logOR_Y = +2.1425
+  d_wtr    :  logOR_Y = +2.2376
+  d_sani   :  logOR_Y = +1.1523
+  d_hsg    :  logOR_Y = +1.5156
+  d_ckfl   :  logOR_Y = +3.4647
+  d_asst   :  logOR_Y = +2.2216

@@ -1,0 +1,22 @@
+=== logOR for moz_dhs22-23 ===
+Graph: results_stable2/moz_dhs22-23_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -1.5903
+  d_elct    --  d_wtr    :  logOR = +1.5408
+  d_elct    --  d_hsg    :  logOR = +1.8684
+  d_elct    --  d_asst   :  logOR = +1.3501
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +1.7951
+  d_nutr   :  logOR_Y = +3.2584
+  d_satt   :  logOR_Y = +2.6592
+  d_educ   :  logOR_Y = +4.3973
+  d_elct   :  logOR_Y = +1.7902
+  d_wtr    :  logOR_Y = +1.5782
+  d_sani   :  logOR_Y = +2.4836
+  d_hsg    :  logOR_Y = +2.1070
+  d_ckfl   :  logOR_Y = +2.8857
+  d_asst   :  logOR_Y = +1.3670

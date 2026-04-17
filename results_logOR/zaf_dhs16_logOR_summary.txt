@@ -1,0 +1,23 @@
+=== logOR for zaf_dhs16 ===
+Graph: results_stable2/zaf_dhs16_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -3.5327
+  d_elct    --  d_ckfl   :  logOR = +1.4489
+  d_elct    --  d_asst   :  logOR = +2.9375
+  d_wtr     --  d_ckfl   :  logOR = +1.8580
+  d_sani    --  d_asst   :  logOR = +1.1966
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.7992
+  d_nutr   :  logOR_Y = +3.8021
+  d_satt   :  logOR_Y = +2.2418
+  d_educ   :  logOR_Y = +4.2401
+  d_elct   :  logOR_Y = +1.4988
+  d_wtr    :  logOR_Y = +1.7908
+  d_sani   :  logOR_Y = +0.6720
+  d_hsg    :  logOR_Y = +2.2781
+  d_ckfl   :  logOR_Y = +1.1740
+  d_asst   :  logOR_Y = +2.0785

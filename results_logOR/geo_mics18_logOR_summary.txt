@@ -1,0 +1,20 @@
+=== logOR for geo_mics18 ===
+Graph: results_stable2/geo_mics18_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_elct    --  d_asst   :  logOR = +4.9969
+  d_sani    --  d_ckfl   :  logOR = +0.8583
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +3.4190
+  d_nutr   :  logOR_Y = +3.2658
+  d_satt   :  logOR_Y = +4.3626
+  d_educ   :  logOR_Y = +4.9947
+  d_elct   :  logOR_Y = +4.6082
+  d_wtr    :  logOR_Y = +1.7710
+  d_sani   :  logOR_Y = +1.5940
+  d_hsg    :  logOR_Y = +2.4353
+  d_ckfl   :  logOR_Y = +2.2242
+  d_asst   :  logOR_Y = +3.6673

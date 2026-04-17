@@ -1,0 +1,22 @@
+=== logOR for blz_mics15-16 ===
+Graph: results_stable2/blz_mics15-16_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -2.0220
+  d_elct    --  d_ckfl   :  logOR = +1.9400
+  d_elct    --  d_asst   :  logOR = +2.6285
+  d_hsg     --  d_ckfl   :  logOR = +1.6243
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.4137
+  d_nutr   :  logOR_Y = +4.2282
+  d_satt   :  logOR_Y = +2.4744
+  d_educ   :  logOR_Y = +3.8944
+  d_elct   :  logOR_Y = +1.9442
+  d_wtr    :  logOR_Y = +1.7674
+  d_sani   :  logOR_Y = +1.8913
+  d_hsg    :  logOR_Y = +1.5787
+  d_ckfl   :  logOR_Y = +2.0448
+  d_asst   :  logOR_Y = +2.2960

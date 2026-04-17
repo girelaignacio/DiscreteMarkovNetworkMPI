@@ -1,0 +1,22 @@
+=== logOR for lao_mics17 ===
+Graph: results_stable2/lao_mics17_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_satt   :  logOR = -2.2439
+  d_nutr    --  d_educ   :  logOR = -4.6227
+  d_satt    --  d_educ   :  logOR = -2.8338
+  d_elct    --  d_asst   :  logOR = +2.4993
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.1083
+  d_nutr   :  logOR_Y = +4.7581
+  d_satt   :  logOR_Y = +4.8512
+  d_educ   :  logOR_Y = +5.4135
+  d_elct   :  logOR_Y = +2.8134
+  d_wtr    :  logOR_Y = +1.9977
+  d_sani   :  logOR_Y = +2.6547
+  d_hsg    :  logOR_Y = +2.1717
+  d_ckfl   :  logOR_Y = +2.3511
+  d_asst   :  logOR_Y = +2.5665

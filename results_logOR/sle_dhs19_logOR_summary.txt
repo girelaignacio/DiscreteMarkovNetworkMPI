@@ -1,0 +1,22 @@
+=== logOR for sle_dhs19 ===
+Graph: results_stable2/sle_dhs19_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -1.2366
+  d_elct    --  d_hsg    :  logOR = +1.7978
+  d_elct    --  d_asst   :  logOR = +2.3151
+  d_hsg     --  d_asst   :  logOR = +0.7868
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.4045
+  d_nutr   :  logOR_Y = +3.0505
+  d_satt   :  logOR_Y = +2.6811
+  d_educ   :  logOR_Y = +4.6046
+  d_elct   :  logOR_Y = +1.6557
+  d_wtr    :  logOR_Y = +1.3268
+  d_sani   :  logOR_Y = +1.7865
+  d_hsg    :  logOR_Y = +1.2769
+  d_ckfl   :  logOR_Y = +1.8127
+  d_asst   :  logOR_Y = +1.3201

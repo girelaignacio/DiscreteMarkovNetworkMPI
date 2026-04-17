@@ -1,0 +1,22 @@
+=== logOR for pak_dhs17-18 ===
+Graph: results_stable2/pak_dhs17-18_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_satt   :  logOR = -2.0412
+  d_nutr    --  d_educ   :  logOR = -2.4011
+  d_satt    --  d_educ   :  logOR = -1.2119
+  d_hsg     --  d_ckfl   :  logOR = +2.4718
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +1.9676
+  d_nutr   :  logOR_Y = +3.7963
+  d_satt   :  logOR_Y = +4.3235
+  d_educ   :  logOR_Y = +4.8471
+  d_elct   :  logOR_Y = +2.7332
+  d_wtr    :  logOR_Y = +1.2969
+  d_sani   :  logOR_Y = +2.2539
+  d_hsg    :  logOR_Y = +1.8028
+  d_ckfl   :  logOR_Y = +1.4602
+  d_asst   :  logOR_Y = +2.4094

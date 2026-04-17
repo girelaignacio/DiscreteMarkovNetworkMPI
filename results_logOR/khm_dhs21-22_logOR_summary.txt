@@ -1,0 +1,22 @@
+=== logOR for khm_dhs21-22 ===
+Graph: results_stable2/khm_dhs21-22_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_satt   :  logOR = -2.8565
+  d_nutr    --  d_educ   :  logOR = -3.5810
+  d_satt    --  d_educ   :  logOR = -3.7770
+  d_elct    --  d_ckfl   :  logOR = +1.8864
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.0100
+  d_nutr   :  logOR_Y = +4.8348
+  d_satt   :  logOR_Y = +4.8703
+  d_educ   :  logOR_Y = +5.7258
+  d_elct   :  logOR_Y = +1.8183
+  d_wtr    :  logOR_Y = +1.5876
+  d_sani   :  logOR_Y = +1.9739
+  d_hsg    :  logOR_Y = +1.2787
+  d_ckfl   :  logOR_Y = +1.1266
+  d_asst   :  logOR_Y = +2.0380

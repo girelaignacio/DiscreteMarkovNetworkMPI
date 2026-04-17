@@ -1,0 +1,24 @@
+=== logOR for gab_dhs19-21 ===
+Graph: results_stable2/gab_dhs19-21_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -3.8306
+  d_elct    --  d_wtr    :  logOR = +1.4477
+  d_elct    --  d_ckfl   :  logOR = +2.1054
+  d_elct    --  d_asst   :  logOR = +2.1340
+  d_wtr     --  d_ckfl   :  logOR = +1.4463
+  d_hsg     --  d_ckfl   :  logOR = +1.6158
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.1030
+  d_nutr   :  logOR_Y = +2.7992
+  d_satt   :  logOR_Y = +2.4334
+  d_educ   :  logOR_Y = +3.4176
+  d_elct   :  logOR_Y = +1.1412
+  d_wtr    :  logOR_Y = +1.2690
+  d_sani   :  logOR_Y = +2.1666
+  d_hsg    :  logOR_Y = +1.9836
+  d_ckfl   :  logOR_Y = +1.6508
+  d_asst   :  logOR_Y = +2.1223

@@ -1,0 +1,10 @@
+nan nan nan nan nan nan nan nan nan nan
+nan nan nan -1.590312 nan nan nan nan nan nan
+nan nan nan nan nan nan nan nan nan nan
+nan -1.590312 nan nan nan nan nan nan nan nan
+nan nan nan nan nan 1.540834 nan 1.868409 nan 1.350139
+nan nan nan nan 1.540834 nan nan nan nan nan
+nan nan nan nan nan nan nan nan nan nan
+nan nan nan nan 1.868409 nan nan nan nan nan
+nan nan nan nan nan nan nan nan nan nan
+nan nan nan nan 1.350139 nan nan nan nan nan

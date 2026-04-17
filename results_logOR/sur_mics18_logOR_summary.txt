@@ -1,0 +1,21 @@
+=== logOR for sur_mics18 ===
+Graph: results_stable2/sur_mics18_mpi_poor_conserv.txt
+Outcome: MPI-poor (censored deprivation score >= 1/3)
+Column order: ['d_cm', 'd_nutr', 'd_satt', 'd_educ', 'd_elct', 'd_wtr', 'd_sani', 'd_hsg', 'd_ckfl', 'd_asst']
+
+--- Pairwise conditional logOR: X_i -- X_j  (given Y and neighbourhood X_W\j) ---
+  d_nutr    --  d_educ   :  logOR = -3.3532
+  d_elct    --  d_asst   :  logOR = +3.2613
+  d_sani    --  d_asst   :  logOR = +1.9823
+
+--- logOR of each indicator with Y (MPI-poor), given neighbourhood X_W ---
+  d_cm     :  logOR_Y = +2.7048
+  d_nutr   :  logOR_Y = +3.9374
+  d_satt   :  logOR_Y = +3.1629
+  d_educ   :  logOR_Y = +4.6215
+  d_elct   :  logOR_Y = +2.5011
+  d_wtr    :  logOR_Y = +2.7451
+  d_sani   :  logOR_Y = +2.1391
+  d_hsg    :  logOR_Y = +1.9720
+  d_ckfl   :  logOR_Y = +2.8417
+  d_asst   :  logOR_Y = +2.6983

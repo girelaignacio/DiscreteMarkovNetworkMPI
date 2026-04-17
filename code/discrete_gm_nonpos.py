@@ -178,10 +178,148 @@ class discrete_graphical_model:
         
         return  ({'conserv' : CI_c, 'nconserv' : CI_nc})
     def estimate_stable_CI_multiple_datasets(self,X_Y_list, ncores_outer= 1, PFER=.1, npartitions=100, pi_min =.5, pi_max = .7, seed = None):
-        # assumes X_Y_list = [(X1, Y1), (X2, Y2), ... ]  
+        # assumes X_Y_list = [(X1, Y1), (X2, Y2), ... ]
         func = partial(self.estimate_stable_CI, PFER=PFER, npartitions=npartitions, pi_min=pi_min, pi_max=pi_max, seed=seed)
         with ThreadPoolExecutor(max_workers=self.ncores) as executor:
             return list(executor.map(lambda data: func(*data), X_Y_list))
+
+    def compute_interaction_logOR(self, X, Y, ne, smoothing=1.0, symmetrize=True):
+        """
+        Computes the expected empirical log-Odds Ratios (logOR) non-parametrically.
+
+        Parameters:
+        -----------
+        X : np.array of shape (n, p), binary predictors
+        Y : np.array of shape (n, q), binary covariates/outcomes (or None for marginal)
+        ne : np.array of shape (p, p), boolean adjacency matrix (e.g., from estimate_stable_CI)
+        smoothing : float, Laplace smoothing parameter to avoid log(0).
+        symmetrize: bool, whether to average the directed logORs symmetrically.
+
+        Returns:
+        --------
+        logOR_matrix : np.array of shape (p, p)
+                       logOR_matrix[i, j] is the expected logOR of X_i and X_j given X_W and Y.
+                       Non-edges are set to np.nan.
+        logOR_Y :      np.array of shape (p,)
+                       logOR_Y[i] is the expected logOR of X_i and Y given X_W.
+                       (Assumes Y is univariate; evaluates the first column of Y).
+        """
+        if Y is None:
+            Y = np.zeros((X.shape[0], 0))
+
+        n, p = X.shape
+        q = Y.shape[1]
+        YX = np.hstack((Y, X))
+
+        # 1. Initialize Outputs
+        logOR_matrix = np.full((p, p), np.nan)
+        logOR_Y = np.full(p, np.nan)
+
+        # ==========================================================
+        # 2. Compute interaction of X_i with X_j (given Y and X_W\j)
+        # ==========================================================
+        for i in range(p):
+            for j in range(p):
+                if i == j or not ne[i, j]:
+                    continue
+
+                # W is the neighborhood of i, excluding j
+                W_indices = np.where(ne[i, :])[0]
+                W_indices = [w for w in W_indices if w != j]
+
+                Z_indices = list(range(q)) + [q + w for w in W_indices]
+                V1 = X[:, i]
+                V2 = X[:, j]
+
+                if len(Z_indices) == 0:
+                    strata = np.zeros(n, dtype=int)
+                    num_strata = 1
+                else:
+                    Z = YX[:, Z_indices]
+                    _, strata = np.unique(Z, axis=0, return_inverse=True)
+                    num_strata = strata.max() + 1
+
+                state = V1 * 2 + V2
+                combined_index = strata * 4 + state
+
+                counts = np.bincount(combined_index, minlength=num_strata * 4).reshape(num_strata, 4)
+                stratum_weights = np.sum(counts, axis=1)
+
+                counts = counts.astype(float) + smoothing
+                d_k = counts[:, 0]  # X_i=0, X_j=0
+                c_k = counts[:, 1]  # X_i=0, X_j=1
+                b_k = counts[:, 2]  # X_i=1, X_j=0
+                a_k = counts[:, 3]  # X_i=1, X_j=1
+
+                log_or_k = np.log(a_k) + np.log(d_k) - np.log(b_k) - np.log(c_k)
+                valid = stratum_weights > 0
+
+                if np.sum(stratum_weights[valid]) > 0:
+                    weighted_log_or = np.sum(log_or_k[valid] * stratum_weights[valid]) / np.sum(stratum_weights[valid])
+                    logOR_matrix[i, j] = weighted_log_or
+
+        # Symmetrize logOR_matrix (Arithmetic Mean)
+        if symmetrize:
+            logOR_matrix_sym = np.full((p, p), np.nan)
+            for i in range(p):
+                for j in range(i, p):
+                    if ne[i, j] or ne[j, i]:
+                        l_ij = logOR_matrix[i, j]
+                        l_ji = logOR_matrix[j, i]
+
+                        if not np.isnan(l_ij) and not np.isnan(l_ji):
+                            sym_val = (l_ij + l_ji) / 2.0
+                            logOR_matrix_sym[i, j] = sym_val
+                            logOR_matrix_sym[j, i] = sym_val
+                        elif not np.isnan(l_ij):
+                            logOR_matrix_sym[i, j] = l_ij
+                            logOR_matrix_sym[j, i] = l_ij
+                        elif not np.isnan(l_ji):
+                            logOR_matrix_sym[i, j] = l_ji
+                            logOR_matrix_sym[j, i] = l_ji
+            logOR_matrix = logOR_matrix_sym
+
+        # ==========================================================
+        # 3. Compute interaction of X_i with Y (given X_W)
+        # ==========================================================
+        if q > 0:
+            Y_col = Y[:, 0]  # Assume Y is univariate target
+            for i in range(p):
+                # W is the exact neighborhood of i
+                W_indices = np.where(ne[i, :])[0]
+                W_indices = [w for w in W_indices if w != i]
+
+                if len(W_indices) == 0:
+                    strata = np.zeros(n, dtype=int)
+                    num_strata = 1
+                else:
+                    Z = X[:, W_indices]
+                    _, strata = np.unique(Z, axis=0, return_inverse=True)
+                    num_strata = strata.max() + 1
+
+                V1 = X[:, i]
+                V2 = Y_col
+
+                state = V1 * 2 + V2
+                combined_index = strata * 4 + state
+
+                counts = np.bincount(combined_index, minlength=num_strata * 4).reshape(num_strata, 4)
+                stratum_weights = np.sum(counts, axis=1)
+
+                counts = counts.astype(float) + smoothing
+                d_k = counts[:, 0]  # X_i=0, Y=0
+                c_k = counts[:, 1]  # X_i=0, Y=1
+                b_k = counts[:, 2]  # X_i=1, Y=0
+                a_k = counts[:, 3]  # X_i=1, Y=1
+
+                log_or_k = np.log(a_k) + np.log(d_k) - np.log(b_k) - np.log(c_k)
+                valid = stratum_weights > 0
+
+                if np.sum(stratum_weights[valid]) > 0:
+                    weighted_log_or = np.sum(log_or_k[valid] * stratum_weights[valid]) / np.sum(stratum_weights[valid])
+                    logOR_Y[i] = weighted_log_or
+
+        return logOR_matrix, logOR_Y
 
 # class cross_validated_discrete_graphical_model:
 #     def __init__(self,c=np.linspace(.1,1,10),ncores=None):
@@ -840,3 +978,9 @@ if __name__ == "__main__": # test
     print(cc_metrics_kf["components"])  # sizes of each connected component
     print(cc_metrics_kf["component_labels"])  # mapping of variable index to component ID
     print(cc_metrics_kf)
+
+    # logOR
+    logOR_matrix, logOR_Y = dgm.compute_interaction_logOR(X, Y, ne=CI_stable['conserv'])
+    logOR_matrix_NP_marginal, logOR_Y_marginal = dgm.compute_interaction_logOR(X, Y=None, ne=CI_stable['conserv'])
+    print("Marginal NP:", logOR_matrix_NP_marginal, logOR_Y_marginal)
+    print("Conditional NP:", logOR_matrix, logOR_Y)
