@@ -265,8 +265,8 @@ def _plot(
     # --- colourbar ---
     sm = mcm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, shrink=0.45, pad=-0.05, location="bottom", aspect=28)
-    cbar.set_label("Conditional log OR", fontsize=10)
+    cbar = fig.colorbar(sm, ax=ax, shrink=0.45, pad=-0.05, location="top", aspect=28)
+    cbar.set_label("Conditional log-OR", fontsize=15, labelpad=10)
 
     edge_note = (
         "Edge colour/width: pairwise logOR | X_i\u2013X_j\n"
