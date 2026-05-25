@@ -254,26 +254,26 @@ def _plot(
         dim_patches.append(
             mpatches.Patch(facecolor=OUTCOME_COLOR, label="MPI outcome", edgecolor="#444444")
         )
-    ax.legend(
-        handles=dim_patches,
-        loc="upper right",
-        fontsize=9,
-        framealpha=0.85,
-        edgecolor="#cccccc",
-    )
+    # ax.legend(
+    #     handles=dim_patches,
+    #     loc="upper right",
+    #     fontsize=9,
+    #     framealpha=0.85,
+    #     edgecolor="#cccccc",
+    # )
 
     # --- colourbar ---
     sm = mcm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, shrink=0.45, pad=0.03, location="bottom", aspect=28)
-    cbar.set_label("Log Odds Ratio", fontsize=10)
+    cbar = fig.colorbar(sm, ax=ax, shrink=0.45, pad=-0.05, location="bottom", aspect=28)
+    cbar.set_label("Conditional log OR", fontsize=10)
 
     edge_note = (
         "Edge colour/width: pairwise logOR | X_i\u2013X_j\n"
         if not add_outcome
         else "Solid: pairwise logOR | X_i\u2013X_j   Dashed: logOR | X_i\u2013MPI"
     )
-    ax.set_title(f"{title}\n{edge_note}", fontsize=13, fontweight="bold", pad=12)
+    # ax.set_title(f"{title}\n{edge_note}", fontsize=13, fontweight="bold", pad=12)
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight", facecolor="white")
