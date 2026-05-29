@@ -53,14 +53,14 @@ NODE_COLORS = {
     "d_hsg":  "#174d68", "d_asst": "#00384f",
 }
 
-OUTCOME_COLOR  = "#E8B400"   # gold for MPI node
-OUTCOME_LABEL  = "MPI"
+OUTCOME_COLOR  = "#FFFFFF"   # white for outcome node
+OUTCOME_LABEL  = "Z"
 
 # ---------------------------------------------------------------------------
 # Countries to plot  (iso_survey → display title)
 # ---------------------------------------------------------------------------
 COUNTRIES = {
-    "cod_mics17-18": "Congo (DR)",
+    "cog_mics14-15": "Congo (DR)",
     "gnb_mics18-19": "Guinea-Bissau",
     "hnd_mics19":    "Honduras",
     "mli_dhs18":     "Mali",
@@ -162,9 +162,9 @@ def _plot(
 
     vmax = max(abs(min(edge_vals)), abs(max(edge_vals)), 1e-6)
     norm = mcolors.TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
-    cmap = plt.cm.RdBu_r   # Red = positive logOR, Blue = negative
+    cmap = plt.cm.RdBu   # Blue = positive logOR, Red = negative
 
-    lw_min, lw_max = 0.8, 8.0
+    lw_min, lw_max = 5., 10.0
 
     def _lw(v):
         return lw_min + (lw_max - lw_min) * abs(v) / vmax
@@ -225,7 +225,7 @@ def _plot(
         ax.text(
             x, y, LABELS[ind],
             ha="center", va="center",
-            fontsize=11, fontweight="bold",
+            fontsize=14, fontweight="bold",
             color="white", zorder=3,
         )
 
@@ -240,7 +240,7 @@ def _plot(
         ax.text(
             0.0, 0.0, OUTCOME_LABEL,
             ha="center", va="center",
-            fontsize=11, fontweight="bold",
+            fontsize=14, fontweight="bold",
             color="#333333", zorder=3,
         )
 
